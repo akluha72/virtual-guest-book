@@ -66,12 +66,12 @@
     <script type="module" src="/src/main.js"></script>
   </div>
 
-  <p class="version-tag">
-    Build:
-    <script>document.write(__APP_VERSION__)</script>
-    (Generated on
-    <script>document.write(__BUILD_DATE__)</script>)
-  </p>
+  <p class="version-tag" id="version"></p>
+
+  <script type="module">
+    document.getElementById("version").innerText =
+      `Build: ${__APP_VERSION__} (Generated on ${__BUILD_DATE__})`;
+  </script>
 </body>
 
 </html>
