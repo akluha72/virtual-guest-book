@@ -14,7 +14,7 @@
     }
 
     .content-wrapper {
-      margin: 0 auto;
+      margin: 10vh auto;
     }
 
     canvas {
@@ -33,11 +33,11 @@
     .version-tag {
       font-size: 0.8rem;
       font-style: italic;
-      position: fixed;
-      bottom: 0;
-      right: 0;
       color: #00ff37;
-      margin-top: 2rem;
+      text-align: center;
+      /* or right if you want */
+      margin: 2rem 0 1rem;
+      /* spacing from content above */
     }
   </style>
 
@@ -66,8 +66,10 @@
     <script type="module" src="/src/main.js"></script>
   </div>
 
-  <p class="version-tag" id="version"></p>
 
+  <footer>
+    <p class="version-tag" id="version"></p>
+  </footer>
   <script type="module">
     document.getElementById("version").innerText =
       `Build: ${__APP_VERSION__} (Generated on ${__BUILD_DATE__})`;
