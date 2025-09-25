@@ -20,15 +20,19 @@ canvas.height = canvas.offsetHeight;
 
 // === Random Greeting Pool ===
 const greetings = [
-  "voice-note/voice1-effect.wav",
-  "voice-note/voice2-effect.wav",
-  "voice-note/voice3-effect.wav"
+  "/voice-note/voice4-effect.wav",
 ];
 
 function playRandomGreeting() {
   const randomIndex = Math.floor(Math.random() * greetings.length);
-  const audio = new Audio(greetings[randomIndex]);
-  audio.play();
+  const url = greetings[randomIndex];
+  const audio = new Audio(url);
+  audio.onerror = (e) => {
+    console.error('Greeting failed to load', url, e);
+  };
+  audio.play().catch((err) => {
+    console.error('Greeting failed to play', err);
+  });
   return audio; // so you can use .onended
 }
 
@@ -152,11 +156,10 @@ actionBtn.addEventListener('click', async () => {
   if (state === 'idle') {
     // Play random greeting, then begin recording
     const ctx = getAudioContext();
-    const randomIndex = Math.floor(Math.random() * greetings.length);
-    const audio = new Audio(greetings[randomIndex]);
     actionBtn.disabled = true;
     actionBtn.textContent = '🔊 Playing greeting...';
-    await audio.play().then(() => ctx.resume()).catch(() => {});
+    const audio = playRandomGreeting();
+    await ctx.resume();
     audio.onended = () => {
       actionBtn.disabled = false;
       startRecording();
