@@ -55,8 +55,11 @@
     </video>
     <p>Leave your wishes after listening to the greeting.</p>
 
-    <button id="startBtn">▶️ Let's Start</button>
-    <button id="stopBtn" disabled>⏹ Stop Recording</button>
+    <button id="actionBtn">▶️ Start</button>
+    <div id="postControls" style="margin-top: 1rem; display:none; gap: 0.5rem; justify-content:center;">
+      <button id="restartBtn">↩️ Restart</button>
+      <button id="saveBtn">💾 Save / Send</button>
+    </div>
 
     <canvas id="visualizer"></canvas>
 

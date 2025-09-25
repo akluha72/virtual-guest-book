@@ -76,6 +76,10 @@ button {
   cursor: pointer;
   transition: border-color 0.25s;
 }
+
+#postControls {
+  display: flex;
+}
 button:hover {
   border-color: #646cff;
 }

@@ -1,15 +1,15 @@
 import './style.css'
-import javascriptLogo from './javascript.svg'
-import viteLogo from '/vite.svg'
-import { setupCounter } from './counter.js'
 
 let mediaRecorder;
 let audioChunks = [];
+let recordedBlob = null;
 let animationId;
 let audioCtx, analyser;
 
-const startBtn = document.getElementById("startBtn");
-const stopBtn = document.getElementById("stopBtn");
+const actionBtn = document.getElementById("actionBtn");
+const restartBtn = document.getElementById("restartBtn");
+const saveBtn = document.getElementById("saveBtn");
+const postControls = document.getElementById("postControls");
 const audioPlayback = document.getElementById("audioPlayback");
 const downloadLink = document.getElementById("downloadLink");
 const canvas = document.getElementById("visualizer");
@@ -118,6 +118,7 @@ async function startRecording() {
 
   mediaRecorder = new MediaRecorder(destination.stream, options);
   audioChunks = [];
+  recordedBlob = null;
   mediaRecorder.start();
 
   mediaRecorder.addEventListener("dataavailable", e => {
@@ -126,48 +127,74 @@ async function startRecording() {
 
   mediaRecorder.addEventListener("stop", () => {
     const mimeType = mediaRecorder.mimeType || "audio/mp4";
-    const audioBlob = new Blob(audioChunks, { type: mimeType });
-    const audioUrl = URL.createObjectURL(audioBlob);
+    recordedBlob = new Blob(audioChunks, { type: mimeType });
+    const audioUrl = URL.createObjectURL(recordedBlob);
 
     audioPlayback.src = audioUrl;
     downloadLink.href = audioUrl;
     downloadLink.textContent = "⬇️ Download your message";
+
+    // show post controls
+    postControls.style.display = 'flex';
+    actionBtn.textContent = '▶️ Start';
   });
 
   drawWaveform(analyser);
 
-  startBtn.disabled = true;
-  stopBtn.disabled = false;
-  startBtn.textContent = "Recording...";
+  actionBtn.dataset.state = 'recording';
+  actionBtn.textContent = '⏹ Stop';
 }
 
 // === Event Listeners ===
-startBtn.addEventListener("click", () => {
-  const ctx = getAudioContext();
+actionBtn.addEventListener('click', async () => {
+  const state = actionBtn.dataset.state || 'idle';
 
-  // Create greeting inside click event
-  const randomIndex = Math.floor(Math.random() * greetings.length);
-  const audio = new Audio(greetings[randomIndex]);
-
-  audio.play().then(() => {
-    // Ensure context stays active
-    ctx.resume();
-  });
-
-  audio.onended = () => {
-    startRecording();
-  };
+  if (state === 'idle') {
+    // Play random greeting, then begin recording
+    const ctx = getAudioContext();
+    const randomIndex = Math.floor(Math.random() * greetings.length);
+    const audio = new Audio(greetings[randomIndex]);
+    actionBtn.disabled = true;
+    actionBtn.textContent = '🔊 Playing greeting...';
+    await audio.play().then(() => ctx.resume()).catch(() => {});
+    audio.onended = () => {
+      actionBtn.disabled = false;
+      startRecording();
+    };
+  } else if (state === 'recording') {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+    }
+    stopVisualizer();
+    actionBtn.dataset.state = 'idle';
+  }
 });
 
-stopBtn.addEventListener("click", () => {
-  if (mediaRecorder && mediaRecorder.state === "recording") {
-    mediaRecorder.stop();
-  }
-  stopVisualizer();
+restartBtn.addEventListener('click', () => {
+  // reset UI to start state
+  postControls.style.display = 'none';
+  audioPlayback.removeAttribute('src');
+  downloadLink.removeAttribute('href');
+  downloadLink.textContent = 'No recording yet';
+  recordedBlob = null;
+  actionBtn.dataset.state = 'idle';
+  actionBtn.textContent = '▶️ Start';
+});
 
-  startBtn.disabled = false;
-  stopBtn.disabled = true;
-  startBtn.textContent = "▶️ Let's Start";
+saveBtn.addEventListener('click', async () => {
+  if (!recordedBlob) return;
+  // Persist as Data URL to avoid large base64 spread issues
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    try {
+      sessionStorage.setItem('guestAudioDataUrl', reader.result);
+      sessionStorage.setItem('guestAudioMime', recordedBlob.type || 'audio/webm');
+    } catch (e) {
+      console.error('Failed to store audio in sessionStorage', e);
+    }
+    window.location.href = '/save.html';
+  };
+  reader.readAsDataURL(recordedBlob);
 });
 
 // === Playback waveform ===
