@@ -22,49 +22,28 @@
     </section>
 
     <section style="margin: 1rem 0;">
-      <h2>Take 3 Selfies</h2>
-      <video id="camera" autoplay playsinline style="width:100%; max-width:420px; border-radius:12px; background:#000;"></video>
+      <h2>Record a 5–10s muted video</h2>
+      <video id="camera" autoplay playsinline muted style="width:100%; max-width:520px; border-radius:12px; background:#000;"></video>
+      <video id="videoPreview" playsinline controls loop muted style="display:none; width:100%; max-width:520px; border-radius:12px; background:#000; margin-top:0.75rem;"></video>
       <div style="margin-top:0.75rem; display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
-        <button id="snapBtn">📸 Snap</button>
-        <button id="retakeBtn">↩️ Retake Last</button>
-        <button id="clearBtn">🗑 Clear All</button>
+        <button id="recordVideoBtn">🎥 Record (8s)</button>
+        <button id="retakeVideoBtn" disabled>↩️ Retake</button>
       </div>
-
-      <div id="thumbs" style="display:flex; gap:0.75rem; justify-content:center; margin-top:0.75rem; flex-wrap:wrap;"></div>
     </section>
 
     <section style="margin: 1rem 0;">
-      <h2>Your Name</h2>
-      <input id="guestName" type="text" placeholder="Enter your name" style="padding:0.6rem 0.9rem; border-radius:8px; border:1px solid #999; min-width:260px;" />
-    </section>
-
-    <section style="margin: 1rem 0;">
-      <h2>Preview Card</h2>
-      <div id="previewCard" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:0.75rem; align-items:start;">
-        <div class="photoCard" data-idx="0" style="position:relative;">
-          <img id="img0" style="width:100%; border-radius:12px; object-fit:cover; aspect-ratio:3/4; background:#000;" />
-          <div class="caption" style="position:absolute; left:0; right:0; bottom:0; padding:0.4rem 0.6rem; background:linear-gradient(180deg, transparent, rgba(0,0,0,0.7)); color:#fff; border-bottom-left-radius:12px; border-bottom-right-radius:12px; text-align:center;">
-            <span id="name0"></span>
-          </div>
-        </div>
-        <div class="photoCard" data-idx="1" style="position:relative;">
-          <img id="img1" style="width:100%; border-radius:12px; object-fit:cover; aspect-ratio:3/4; background:#000;" />
-          <div class="caption" style="position:absolute; left:0; right:0; bottom:0; padding:0.4rem 0.6rem; background:linear-gradient(180deg, transparent, rgba(0,0,0,0.7)); color:#fff; border-bottom-left-radius:12px; border-bottom-right-radius:12px; text-align:center;">
-            <span id="name1"></span>
-          </div>
-        </div>
-        <div class="photoCard" data-idx="2" style="position:relative;">
-          <img id="img2" style="width:100%; border-radius:12px; object-fit:cover; aspect-ratio:3/4; background:#000;" />
-          <div class="caption" style="position:absolute; left:0; right:0; bottom:0; padding:0.4rem 0.6rem; background:linear-gradient(180deg, transparent, rgba(0,0,0,0.7)); color:#fff; border-bottom-left-radius:12px; border-bottom-right-radius:12px; text-align:center;">
-            <span id="name2"></span>
-          </div>
-        </div>
+      <h2>Your Details</h2>
+      <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap;">
+        <input id="guestName" type="text" placeholder="Enter your name" style="padding:0.6rem 0.9rem; border-radius:8px; border:1px solid #999; min-width:260px;" />
+        <input id="eventDate" type="date" style="padding:0.6rem 0.9rem; border-radius:8px; border:1px solid #999;" />
       </div>
     </section>
+
+    <!-- Removed selfie preview grid; video preview is above -->
 
     <div style="margin: 1rem 0; display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
       <button id="backBtn">⬅️ Back</button>
-      <button id="submitBtn">✅ Save Locally</button>
+      <button id="submitBtn">✅ Save</button>
     </div>
   </div>
 

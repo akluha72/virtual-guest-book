@@ -7,25 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const voicePlayback = document.getElementById('voicePlayback');
   const waveCanvas = document.getElementById('waveCanvas');
   const waveCtx = waveCanvas.getContext('2d');
-  const video = document.getElementById('camera');
-  const snapBtn = document.getElementById('snapBtn');
-  const retakeBtn = document.getElementById('retakeBtn');
-  const clearBtn = document.getElementById('clearBtn');
-  const thumbs = document.getElementById('thumbs');
+  const camera = document.getElementById('camera');
+  const videoPreview = document.getElementById('videoPreview');
+  const recordVideoBtn = document.getElementById('recordVideoBtn');
+  const retakeVideoBtn = document.getElementById('retakeVideoBtn');
   const guestNameInput = document.getElementById('guestName');
+  const eventDateInput = document.getElementById('eventDate');
   const backBtn = document.getElementById('backBtn');
   const submitBtn = document.getElementById('submitBtn');
-
-  const imgEls = [
-    document.getElementById('img0'),
-    document.getElementById('img1'),
-    document.getElementById('img2'),
-  ];
-  const nameEls = [
-    document.getElementById('name0'),
-    document.getElementById('name1'),
-    document.getElementById('name2'),
-  ];
 
   waveCanvas.width = waveCanvas.offsetWidth;
   waveCanvas.height = waveCanvas.offsetHeight;
@@ -77,73 +66,71 @@ document.addEventListener('DOMContentLoaded', () => {
   async function initCamera() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      video.srcObject = stream;
+      camera.srcObject = stream;
     } catch (e) {
       console.error('Camera error', e);
     }
   }
 
-  const photos = [];
+  let recordedVideoBlob = null;
+  let mediaRecorder = null;
 
-  function updateThumbs() {
-    thumbs.innerHTML = '';
-    for (let i = 0; i < 3; i++) {
-      const dataUrl = photos[i];
-      imgEls[i].src = dataUrl || '';
-      nameEls[i].textContent = (guestNameInput.value || '').trim();
-      const div = document.createElement('div');
-      div.style.width = '100px';
-      div.style.height = '100px';
-      div.style.borderRadius = '8px';
-      div.style.overflow = 'hidden';
-      div.style.background = '#000';
-      if (dataUrl) {
-        const img = document.createElement('img');
-        img.src = dataUrl;
-        img.style.width = '100%';
-        img.style.height = '100%';
-        img.style.objectFit = 'cover';
-        div.appendChild(img);
-      } else {
-        div.style.display = 'grid';
-        div.style.placeItems = 'center';
-        div.style.color = '#888';
-        div.textContent = `#${i + 1}`;
-      }
-      thumbs.appendChild(div);
+  recordVideoBtn.addEventListener('click', async () => {
+    if (!camera.srcObject) return;
+    const stream = camera.srcObject;
+
+    let mimeType = 'video/webm;codecs=vp9';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      if (MediaRecorder.isTypeSupported('video/webm;codecs=vp8')) mimeType = 'video/webm;codecs=vp8';
+      else mimeType = 'video/webm';
     }
-  }
 
-  snapBtn.addEventListener('click', () => {
-    if (photos.length >= 3) return;
-    const canvas = document.createElement('canvas');
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-    canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, w, h);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    photos.push(dataUrl);
-    updateThumbs();
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
+    const chunks = [];
+    recordedVideoBlob = null;
+    recordVideoBtn.disabled = true;
+    retakeVideoBtn.disabled = true;
+    recordVideoBtn.textContent = '⏳ Recording...';
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) chunks.push(e.data);
+    };
+    mediaRecorder.onstop = () => {
+      recordedVideoBlob = new Blob(chunks, { type: mimeType });
+      const url = URL.createObjectURL(recordedVideoBlob);
+      videoPreview.src = url;
+      videoPreview.style.display = 'block';
+      retakeVideoBtn.disabled = false;
+      recordVideoBtn.textContent = '🎥 Record (8s)';
+      recordVideoBtn.disabled = false;
+    };
+
+    mediaRecorder.start();
+    setTimeout(() => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+    }, 8000);
   });
 
-  retakeBtn.addEventListener('click', () => {
-    if (photos.length > 0) {
-      photos.pop();
-      updateThumbs();
-    }
+  retakeVideoBtn.addEventListener('click', () => {
+    recordedVideoBlob = null;
+    videoPreview.removeAttribute('src');
+    videoPreview.style.display = 'none';
+    retakeVideoBtn.disabled = true;
   });
-
-  clearBtn.addEventListener('click', () => {
-    photos.length = 0;
-    updateThumbs();
-  });
-
-  guestNameInput.addEventListener('input', updateThumbs);
 
   backBtn.addEventListener('click', () => {
     window.history.back();
   });
+
+  function dataUrlToBlob(dataUrl) {
+    const parts = dataUrl.split(',');
+    const mime = /data:(.*?);base64/.exec(parts[0])[1] || 'application/octet-stream';
+    const binary = atob(parts[1]);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
 
   submitBtn.addEventListener('click', async () => {
     const name = (guestNameInput.value || '').trim();
@@ -151,52 +138,44 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Please enter your name');
       return;
     }
+    if (!recordedVideoBlob) {
+      alert('Please record a short video');
+      return;
+    }
+    const audioDataUrl = sessionStorage.getItem('guestAudioDataUrl');
+    if (!audioDataUrl) {
+      alert('Missing recorded audio');
+      return;
+    }
 
-    // For demo: use only the first captured photo and audio
-    const canvas = document.createElement('canvas');
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-    canvas.width = w; canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, w, h);
+    const audioBlob = dataUrlToBlob(audioDataUrl);
 
-    // Convert first photo into Blob
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
-
-    // Get audio Blob from sessionStorage (if stored as Base64 earlier)
-    const audioBase64 = sessionStorage.getItem('guestAudioData');
-    const audioBlob = audioBase64 ?
-      new Blob([Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0))], { type: sessionStorage.getItem('guestAudioMime') })
-      : null;
-
-    const formData = new FormData();
-    formData.append("guest_name", name);
-    formData.append("event_date", new Date().toISOString().slice(0, 10));
-    if (blob) formData.append("video", blob, "guest_video.mp4");
-    if (audioBlob) formData.append("audio", audioBlob, "guest_audio.webm");
+    const form = new FormData();
+    form.append('guest_name', name);
+    const evt = (eventDateInput && eventDateInput.value) ? eventDateInput.value : new Date().toISOString().slice(0, 10);
+    form.append('event_date', evt);
+    form.append('video', recordedVideoBlob, `video_${Date.now()}.webm`);
+    const audioExt = (audioBlob.type.split('/')[1] || 'webm');
+    form.append('audio', audioBlob, `audio_${Date.now()}.${audioExt}`);
 
     try {
-      const res = await fetch("save_entry.php", {
-        method: "POST",
-        body: formData
-      });
-      const data = await res.json();
-      if (data.status === "success") {
-        alert("Entry saved to database!");
-        window.location.href = "/";
+      const res = await fetch('/save_entry.php', { method: 'POST', body: form });
+      const json = await res.json();
+      if (json.status === 'success') {
+        alert('Saved!');
+        window.location.href = '/';
       } else {
-        alert("Save failed: " + data.message);
+        alert('Failed to save: ' + (json.message || 'Unknown error'));
       }
-    } catch (err) {
-      console.error(err);
-      alert("Network error");
+    } catch (e) {
+      console.error(e);
+      alert('Network error');
     }
   });
 
   // Kickoff
   initAudio();
   initCamera();
-  updateThumbs();
 
   voicePlayback.addEventListener('play', () => {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
