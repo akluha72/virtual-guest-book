@@ -9,22 +9,25 @@ if (!file_exists($uploadDir)) {
 
 $name = $_POST['guest_name'] ?? '';
 $event_date = $_POST['event_date'] ?? date("Y-m-d");
-$videoPath = '';
+$photoPath = '';
 $audioPath = '';
 
-if (!empty($_FILES['video']['name'])) {
-    $videoPath = "uploads/" . time() . "_video_" . basename($_FILES['video']['name']);
-    move_uploaded_file($_FILES['video']['tmp_name'], $videoPath);
-}
-if (!empty($_FILES['audio']['name'])) {
-    $audioPath = "uploads/" . time() . "_audio_" . basename($_FILES['audio']['name']);
-    move_uploaded_file($_FILES['audio']['tmp_name'], $audioPath);
+// Save photo
+if (!empty($_FILES['photo']['name'])) {
+    $photoPath = "uploads/" . time() . "_photo_" . basename($_FILES['photo']['name']);
+    move_uploaded_file($_FILES['photo']['tmp_name'], __DIR__ . "/" . $photoPath);
 }
 
-$sql = "INSERT INTO guestbook_entries (guest_name, event_date, video, audio) 
+// Save audio
+if (!empty($_FILES['audio']['name'])) {
+    $audioPath = "uploads/" . time() . "_audio_" . basename($_FILES['audio']['name']);
+    move_uploaded_file($_FILES['audio']['tmp_name'], __DIR__ . "/" . $audioPath);
+}
+
+$sql = "INSERT INTO guestbook_entries (guest_name, event_date, photo, audio) 
         VALUES (?, ?, ?, ?)";
 $stmt = $conn->prepare($sql);
-$stmt->bind_param("ssss", $name, $event_date, $videoPath, $audioPath);
+$stmt->bind_param("ssss", $name, $event_date, $photoPath, $audioPath);
 
 if ($stmt->execute()) {
     echo json_encode(["status" => "success"]);
@@ -34,4 +37,3 @@ if ($stmt->execute()) {
 
 $stmt->close();
 $conn->close();
-?>
