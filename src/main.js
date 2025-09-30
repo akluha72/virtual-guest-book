@@ -359,16 +359,17 @@ submitBtn && submitBtn.addEventListener('click', async () => {
     });
     const data = await res.json().catch(() => ({ status: 'error', message: 'Invalid server response' }));
     if (data.status === 'success') {
-      // Reset UI and show success
-      stopCamera();
-      if (inlineSave) inlineSave.style.display = 'none';
-      postControls.style.display = 'none';
-      actionBtn.disabled = false;
-      actionBtn.textContent = '▶️ Start';
-      uiState = 'idle';
-      recordedBlob = null;
-      audioPlayback.removeAttribute('src');
-      alert('Saved successfully. Thank you!');
+      // Stop media and clear UI, then show Thank You screen centered
+      try { stopCamera(); } catch (_) {}
+      try { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); } catch (_) {}
+      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;">\
+        <div>\
+          <h1 style="font-family: \'Sacramento\', cursive; font-size:3rem; margin:0 0 .5rem;">Thank you! ❤️</h1>\
+          <p>Your message has been saved.</p>\
+        </div>\
+      </div>';
+      document.body.innerHTML = html;
+      return;
     } else {
       alert('Failed to save. Please try again.');
     }
