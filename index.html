@@ -25,11 +25,38 @@
     <button id="actionBtn">▶️ Start</button>
     <div id="postControls" style="margin-top: 1rem; display:none; gap: 0.5rem; justify-content:center;">
       <button id="restartBtn">↩️ Restart</button>
-      <button id="saveBtn">💾 Save / Send</button>
     </div>
 
     <!-- <h3>Preview:</h3> -->
       <audio id="audioPlayback" controls style="display:none"></audio>
+
+    <!-- Inline Save Flow (moved from save.html) -->
+    <div id="inlineSave" style="max-width:960px; margin: 1.25rem auto; padding: 1rem; text-align:center; display:none;">
+
+
+      <section style="margin: 1rem 0;">
+        <h2>Take a Selfie</h2>
+        <video id="camera" autoplay playsinline muted style="width:100%; max-width:520px; aspect-ratio:1 / 1; object-fit:cover; border-radius:50%; background:#000;"></video>
+        <canvas id="photoCanvas" style="display:none;"></canvas>
+        <img id="photoPreview" style="display:none; width:100%; max-width:520px; border-radius:12px; margin-top:0.75rem;">
+        <div style="margin-top:0.75rem; display:flex; gap:0.5rem; justify-content:center;">
+          <button id="takePhotoBtn">📸 Capture</button>
+          <button id="retakePhotoBtn" disabled>↩️ Retake</button>
+        </div>
+      </section>
+
+      <section style="margin: 1rem 0;">
+        <h2>Your Name</h2>
+        <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap;">
+          <input id="guestName" type="text" placeholder="Enter your name" style="padding:0.6rem 0.9rem; border-radius:8px; border:1px solid #999; min-width:260px;" />
+        </div>
+      </section>
+
+      <div style="margin: 1rem 0; display:flex; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
+        <button id="backBtn">⬅️ Back</button>
+        <button id="submitBtn">✅ Save</button>
+      </div>
+    </div>
 
     <!-- <audio id="ownerGreeting" src="/greeting.mp3"></audio> -->
     <script type="module" src="/src/main.js"></script>

@@ -9,14 +9,27 @@ let audioCtx, analyser;
 let uiState = 'idle'; // idle | playing_greeting | recording | ready | previewing
 let playbackSourceNode = null; // cached MediaElementSource for audioPlayback
 let playbackAnalyser = null;   // analyser used for playback waveform
+let cameraStream = null; // media stream for inline selfie capture
+let capturedPhotoBlob = null; // holds captured selfie
 
 const actionBtn = document.getElementById("actionBtn");
 const restartBtn = document.getElementById("restartBtn");
-const saveBtn = document.getElementById("saveBtn");
 const postControls = document.getElementById("postControls");
 const audioPlayback = document.getElementById("audioPlayback");
 const canvas = document.getElementById("visualizer");
 const ctx = canvas.getContext("2d");
+
+// Inline save elements
+const inlineSave = document.getElementById("inlineSave");
+const voiceReview = document.getElementById("voiceReview");
+const camera = document.getElementById("camera");
+const photoCanvas = document.getElementById("photoCanvas");
+const photoPreview = document.getElementById("photoPreview");
+const takePhotoBtn = document.getElementById("takePhotoBtn");
+const retakePhotoBtn = document.getElementById("retakePhotoBtn");
+const guestName = document.getElementById("guestName");
+const backBtn = document.getElementById("backBtn");
+const submitBtn = document.getElementById("submitBtn");
 
 canvas.width = canvas.offsetWidth;
 canvas.height = canvas.offsetHeight;
@@ -153,9 +166,11 @@ async function startRecording() {
     audioPlayback.src = audioUrl;
     // reveal playback and post controls
     // audioPlayback.style.display = 'block';
-    postControls.style.display = 'flex';
+    postControls.style.display = 'none';
     uiState = 'ready';
     actionBtn.textContent = '▶️ Preview';
+    // Immediately show inline save flow after stopping recording
+    showInlineSave();
   });
 
   drawWaveform(analyser);
@@ -209,20 +224,132 @@ restartBtn.addEventListener('click', () => {
   actionBtn.textContent = '▶️ Start';
 });
 
-saveBtn.addEventListener('click', async () => {
-  if (!recordedBlob) return;
-  // Persist as Data URL to avoid large base64 spread issues
-  const reader = new FileReader();
-  reader.onloadend = () => {
-    try {
-      sessionStorage.setItem('guestAudioDataUrl', reader.result);
-      sessionStorage.setItem('guestAudioMime', recordedBlob.type || 'audio/webm');
-    } catch (e) {
-      console.error('Failed to store audio in sessionStorage', e);
+// === Inline Save Flow ===
+async function startCamera() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    if (camera) {
+      camera.srcObject = cameraStream;
     }
-    window.location.href = '/save.html';
-  };
-  reader.readAsDataURL(recordedBlob);
+  } catch (e) {
+    console.error('Failed to start camera', e);
+  }
+}
+
+function stopCamera() {
+  if (cameraStream) {
+    const tracks = cameraStream.getTracks();
+    tracks.forEach(t => t.stop());
+    cameraStream = null;
+  }
+  if (camera) {
+    try { camera.srcObject = null; } catch (_) {}
+  }
+}
+
+function showInlineSave() {
+  if (!recordedBlob) return;
+  // Set voice review audio
+  if (voiceReview) {
+    try { voiceReview.src = URL.createObjectURL(recordedBlob); } catch (_) {}
+  }
+  // Reset photo state
+  capturedPhotoBlob = null;
+  if (photoPreview) { photoPreview.style.display = 'none'; photoPreview.removeAttribute('src'); }
+  if (retakePhotoBtn) retakePhotoBtn.disabled = true;
+  if (takePhotoBtn) takePhotoBtn.disabled = false;
+
+  // Show section
+  if (inlineSave) inlineSave.style.display = 'block';
+  // Hide post controls while in save flow
+  postControls.style.display = 'none';
+  startCamera();
+}
+
+// Removed Save/Send button flow; inline save shows after stop
+
+takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
+  if (!camera) return;
+  const video = camera;
+  const w = video.videoWidth || 520;
+  const h = video.videoHeight || Math.round((520 * 3) / 4);
+  photoCanvas.width = w;
+  photoCanvas.height = h;
+  const pctx = photoCanvas.getContext('2d');
+  pctx.drawImage(video, 0, 0, w, h);
+  photoCanvas.toBlob((blob) => {
+    if (blob) {
+      capturedPhotoBlob = blob;
+      const url = URL.createObjectURL(blob);
+      if (photoPreview) {
+        photoPreview.src = url;
+        photoPreview.style.display = 'block';
+      }
+      if (retakePhotoBtn) retakePhotoBtn.disabled = false;
+      if (takePhotoBtn) takePhotoBtn.disabled = true;
+      stopCamera();
+    }
+  }, 'image/png');
+});
+
+retakePhotoBtn && retakePhotoBtn.addEventListener('click', () => {
+  // Clear previous preview and restart camera
+  capturedPhotoBlob = null;
+  if (photoPreview) { photoPreview.style.display = 'none'; photoPreview.removeAttribute('src'); }
+  if (retakePhotoBtn) retakePhotoBtn.disabled = true;
+  if (takePhotoBtn) takePhotoBtn.disabled = false;
+  startCamera();
+});
+
+backBtn && backBtn.addEventListener('click', () => {
+  // Return to post controls
+  stopCamera();
+  if (inlineSave) inlineSave.style.display = 'none';
+  postControls.style.display = 'flex';
+});
+
+submitBtn && submitBtn.addEventListener('click', async () => {
+  if (!recordedBlob) return;
+  const form = new FormData();
+  form.append('guest_name', (guestName && guestName.value) || '');
+  // auto-fill today's date in YYYY-MM-DD
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  form.append('event_date', `${yyyy}-${mm}-${dd}`);
+  // Attach audio
+  const audioExt = (recordedBlob.type && recordedBlob.type.includes('mp4')) ? 'mp4' : 'webm';
+  form.append('audio', recordedBlob, `message.${audioExt}`);
+  // Attach photo if available
+  if (capturedPhotoBlob) {
+    form.append('photo', capturedPhotoBlob, 'selfie.png');
+  }
+
+  try {
+    const res = await fetch('/save_entry.php', {
+      method: 'POST',
+      body: form
+    });
+    const data = await res.json().catch(() => ({ status: 'error', message: 'Invalid server response' }));
+    if (data.status === 'success') {
+      // Reset UI and show success
+      stopCamera();
+      if (inlineSave) inlineSave.style.display = 'none';
+      postControls.style.display = 'none';
+      actionBtn.disabled = false;
+      actionBtn.textContent = '▶️ Start';
+      uiState = 'idle';
+      recordedBlob = null;
+      audioPlayback.removeAttribute('src');
+      alert('Saved successfully. Thank you!');
+    } else {
+      alert('Failed to save. Please try again.');
+    }
+  } catch (e) {
+    console.error('Save error', e);
+    alert('Save error. Please check your connection.');
+  }
 });
 
 // === Playback waveform ===
