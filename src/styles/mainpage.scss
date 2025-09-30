@@ -1,0 +1,31 @@
+body {
+    font-family: sans-serif;
+    text-align: center;
+}
+
+.content-wrapper {
+    margin: 10vh auto;
+}
+
+canvas {
+    width: 80%;
+    height: 120px;
+    background: #111;
+    display: block;
+    margin: 1rem auto;
+    border-radius: 8px;
+}
+
+h1 {
+    font-family: "Sacramento", cursive;
+}
+
+.version-tag {
+    font-size: 0.8rem;
+    font-style: italic;
+    color: #00ff37;
+    text-align: center;
+    /* or right if you want */
+    margin: 2rem 0 1rem;
+    /* spacing from content above */
+}

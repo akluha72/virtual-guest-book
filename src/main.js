@@ -1,17 +1,20 @@
 import './style.css'
+import './styles/mainpage.scss'
 
 let mediaRecorder;
 let audioChunks = [];
 let recordedBlob = null;
 let animationId;
 let audioCtx, analyser;
+let uiState = 'idle'; // idle | playing_greeting | recording | ready | previewing
+let playbackSourceNode = null; // cached MediaElementSource for audioPlayback
+let playbackAnalyser = null;   // analyser used for playback waveform
 
 const actionBtn = document.getElementById("actionBtn");
 const restartBtn = document.getElementById("restartBtn");
 const saveBtn = document.getElementById("saveBtn");
 const postControls = document.getElementById("postControls");
 const audioPlayback = document.getElementById("audioPlayback");
-const downloadLink = document.getElementById("downloadLink");
 const canvas = document.getElementById("visualizer");
 const ctx = canvas.getContext("2d");
 
@@ -27,9 +30,22 @@ function playRandomGreeting() {
   const randomIndex = Math.floor(Math.random() * greetings.length);
   const url = greetings[randomIndex];
   const audio = new Audio(url);
+  audio.crossOrigin = 'anonymous';
   audio.onerror = (e) => {
     console.error('Greeting failed to load', url, e);
   };
+  // Attach to analyser for waveform
+  const ctx = getAudioContext();
+  try {
+    const source = ctx.createMediaElementSource(audio);
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+    analyser.connect(ctx.destination);
+    drawWaveform(analyser);
+  } catch (err) {
+    console.warn('Could not attach greeting to analyser', err);
+  }
   audio.play().catch((err) => {
     console.error('Greeting failed to play', err);
   });
@@ -135,41 +151,51 @@ async function startRecording() {
     const audioUrl = URL.createObjectURL(recordedBlob);
 
     audioPlayback.src = audioUrl;
-    downloadLink.href = audioUrl;
-    downloadLink.textContent = "⬇️ Download your message";
-
-    // show post controls
+    // reveal playback and post controls
+    // audioPlayback.style.display = 'block';
     postControls.style.display = 'flex';
-    actionBtn.textContent = '▶️ Start';
+    uiState = 'ready';
+    actionBtn.textContent = '▶️ Preview';
   });
 
   drawWaveform(analyser);
 
-  actionBtn.dataset.state = 'recording';
+  uiState = 'recording';
   actionBtn.textContent = '⏹ Stop';
 }
 
 // === Event Listeners ===
 actionBtn.addEventListener('click', async () => {
-  const state = actionBtn.dataset.state || 'idle';
+  const state = uiState || 'idle';
 
   if (state === 'idle') {
     // Play random greeting, then begin recording
     const ctx = getAudioContext();
     actionBtn.disabled = true;
-    actionBtn.textContent = '🔊 Playing greeting...';
+    actionBtn.textContent = '🔊 Lutfi Speaking...';
     const audio = playRandomGreeting();
     await ctx.resume();
     audio.onended = () => {
+      // stop greeting waveform before starting mic waveform
+      stopVisualizer();
       actionBtn.disabled = false;
       startRecording();
     };
+    uiState = 'playing_greeting';
   } else if (state === 'recording') {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
       mediaRecorder.stop();
     }
     stopVisualizer();
-    actionBtn.dataset.state = 'idle';
+    // move to ready; actual UI changes are handled in recorder.stop handler
+  } else if (state === 'ready' || state === 'previewing') {
+    if (!recordedBlob) return;
+    // Always play from start; disable button during preview. No Pause state.
+    try { audioPlayback.currentTime = 0; } catch (_) {}
+    audioPlayback.play();
+    uiState = 'previewing';
+    actionBtn.disabled = true;
+    actionBtn.textContent = '▶️ Preview';
   }
 });
 
@@ -177,10 +203,9 @@ restartBtn.addEventListener('click', () => {
   // reset UI to start state
   postControls.style.display = 'none';
   audioPlayback.removeAttribute('src');
-  downloadLink.removeAttribute('href');
-  downloadLink.textContent = 'No recording yet';
   recordedBlob = null;
-  actionBtn.dataset.state = 'idle';
+  audioPlayback.style.display = 'none';
+  uiState = 'idle';
   actionBtn.textContent = '▶️ Start';
 });
 
@@ -205,15 +230,38 @@ audioPlayback.addEventListener("play", () => {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  const source = audioCtx.createMediaElementSource(audioPlayback);
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048;
+  // Create the MediaElementSource only once for this element
+  if (!playbackSourceNode) {
+    try {
+      playbackSourceNode = audioCtx.createMediaElementSource(audioPlayback);
+    } catch (e) {
+      console.error('Failed to create MediaElementSource for playback', e);
+      return;
+    }
+  }
 
-  source.connect(analyser);
-  analyser.connect(audioCtx.destination);
+  // Disconnect previous analyser connection if present
+  if (playbackAnalyser) {
+    try { playbackSourceNode.disconnect(playbackAnalyser); } catch (_) {}
+  }
 
+  playbackAnalyser = audioCtx.createAnalyser();
+  playbackAnalyser.fftSize = 2048;
+  try {
+    playbackSourceNode.connect(playbackAnalyser);
+    playbackAnalyser.connect(audioCtx.destination);
+  } catch (e) {
+    console.warn('Playback graph connection issue', e);
+  }
+
+  analyser = playbackAnalyser;
   drawWaveform(analyser);
 });
 
 audioPlayback.addEventListener("pause", stopVisualizer);
-audioPlayback.addEventListener("ended", stopVisualizer);
+audioPlayback.addEventListener("ended", () => {
+  stopVisualizer();
+  uiState = 'ready';
+  actionBtn.disabled = false;
+  actionBtn.textContent = '▶️ Preview';
+});
