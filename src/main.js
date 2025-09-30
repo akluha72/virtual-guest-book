@@ -21,7 +21,7 @@ const ctx = canvas.getContext("2d");
 
 // Inline save elements
 const inlineSave = document.getElementById("inlineSave");
-const voiceReview = document.getElementById("voiceReview");
+const greetingVideo = document.getElementById("greetingVideo");
 const camera = document.getElementById("camera");
 const photoCanvas = document.getElementById("photoCanvas");
 const photoPreview = document.getElementById("photoPreview");
@@ -30,6 +30,8 @@ const retakePhotoBtn = document.getElementById("retakePhotoBtn");
 const guestName = document.getElementById("guestName");
 const backBtn = document.getElementById("backBtn");
 const submitBtn = document.getElementById("submitBtn");
+const nameSection = document.getElementById("nameSection");
+const nameActions = document.getElementById("nameActions");
 
 canvas.width = canvas.offsetWidth;
 canvas.height = canvas.offsetHeight;
@@ -169,8 +171,9 @@ async function startRecording() {
     postControls.style.display = 'none';
     uiState = 'ready';
     actionBtn.textContent = '▶️ Preview';
-    // Immediately show inline save flow after stopping recording
-    showInlineSave();
+    // After audio is recorded, unlock name entry and show Save controls
+    if (nameSection) nameSection.style.display = 'block';
+    if (nameActions) nameActions.style.display = 'flex';
   });
 
   drawWaveform(analyser);
@@ -182,19 +185,31 @@ async function startRecording() {
 // === Event Listeners ===
 actionBtn.addEventListener('click', async () => {
   const state = uiState || 'idle';
+  // Pause greeting video immediately on Start click
+  try {
+    if (typeof greetingVideo !== 'undefined' && greetingVideo && !greetingVideo.paused) {
+      greetingVideo.pause();
+    }
+  } catch (_) {}
 
   if (state === 'idle') {
-    // Play random greeting, then begin recording
+    // Play random greeting; after it ends, show selfie section (no auto-record)
     const ctx = getAudioContext();
     actionBtn.disabled = true;
     actionBtn.textContent = '🔊 Lutfi Speaking...';
     const audio = playRandomGreeting();
     await ctx.resume();
     audio.onended = () => {
-      // stop greeting waveform before starting mic waveform
+      // stop greeting waveform; hide video; show selfie section only (lock recording)
       stopVisualizer();
-      actionBtn.disabled = false;
-      startRecording();
+      if (greetingVideo) greetingVideo.style.display = 'none';
+      if (inlineSave) inlineSave.style.display = 'block';
+      if (nameSection) nameSection.style.display = 'none';
+      if (nameActions) nameActions.style.display = 'none';
+      startCamera();
+      actionBtn.disabled = true; // cannot record until selfie is taken
+      actionBtn.textContent = '🎙️ Start Recording';
+      uiState = 'awaiting_selfie';
     };
     uiState = 'playing_greeting';
   } else if (state === 'recording') {
@@ -203,6 +218,11 @@ actionBtn.addEventListener('click', async () => {
     }
     stopVisualizer();
     // move to ready; actual UI changes are handled in recorder.stop handler
+  } else if (state === 'awaiting_recording') {
+    // User starts recording after selfie section is shown
+    startRecording();
+  } else if (state === 'awaiting_selfie') {
+    alert('Please take a selfie first.');
   } else if (state === 'ready' || state === 'previewing') {
     if (!recordedBlob) return;
     // Always play from start; disable button during preview. No Pause state.
@@ -217,6 +237,9 @@ actionBtn.addEventListener('click', async () => {
 restartBtn.addEventListener('click', () => {
   // reset UI to start state
   postControls.style.display = 'none';
+  if (inlineSave) inlineSave.style.display = 'none';
+  if (nameSection) nameSection.style.display = 'none';
+  if (nameActions) nameActions.style.display = 'none';
   audioPlayback.removeAttribute('src');
   recordedBlob = null;
   audioPlayback.style.display = 'none';
@@ -247,47 +270,46 @@ function stopCamera() {
   }
 }
 
-function showInlineSave() {
-  if (!recordedBlob) return;
-  // Set voice review audio
-  if (voiceReview) {
-    try { voiceReview.src = URL.createObjectURL(recordedBlob); } catch (_) {}
-  }
-  // Reset photo state
-  capturedPhotoBlob = null;
-  if (photoPreview) { photoPreview.style.display = 'none'; photoPreview.removeAttribute('src'); }
-  if (retakePhotoBtn) retakePhotoBtn.disabled = true;
-  if (takePhotoBtn) takePhotoBtn.disabled = false;
-
-  // Show section
-  if (inlineSave) inlineSave.style.display = 'block';
-  // Hide post controls while in save flow
-  postControls.style.display = 'none';
-  startCamera();
-}
+// (Selfie section is shown after greeting ends in the click handler above)
 
 // Removed Save/Send button flow; inline save shows after stop
 
 takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
   if (!camera) return;
   const video = camera;
-  const w = video.videoWidth || 520;
-  const h = video.videoHeight || Math.round((520 * 3) / 4);
-  photoCanvas.width = w;
-  photoCanvas.height = h;
+  // Use a centered square crop to match circular frame
+  const vw = video.videoWidth || 520;
+  const vh = video.videoHeight || 520;
+  const size = Math.min(vw, vh);
+  photoCanvas.width = size;
+  photoCanvas.height = size;
   const pctx = photoCanvas.getContext('2d');
-  pctx.drawImage(video, 0, 0, w, h);
+  const sx = (vw - size) / 2;
+  const sy = (vh - size) / 2;
+  pctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
   photoCanvas.toBlob((blob) => {
     if (blob) {
       capturedPhotoBlob = blob;
+      // Prefer IMG preview so custom styles apply
       const url = URL.createObjectURL(blob);
       if (photoPreview) {
         photoPreview.src = url;
         photoPreview.style.display = 'block';
+        // Ensure circular styling if desired
+        if (!photoPreview.style.borderRadius) photoPreview.style.borderRadius = '50%';
+        if (!photoPreview.style.aspectRatio) photoPreview.style.aspectRatio = '1 / 1';
+        if (!photoPreview.style.objectFit) photoPreview.style.objectFit = 'cover';
       }
+      // Hide canvas when using IMG preview
+      if (photoCanvas) photoCanvas.style.display = 'none';
+      // Hide camera feed
+      if (camera) camera.style.display = 'none';
       if (retakePhotoBtn) retakePhotoBtn.disabled = false;
       if (takePhotoBtn) takePhotoBtn.disabled = true;
       stopCamera();
+      // Unlock recording after selfie is captured
+      actionBtn.disabled = false;
+      uiState = 'awaiting_recording';
     }
   }, 'image/png');
 });
@@ -295,10 +317,14 @@ takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
 retakePhotoBtn && retakePhotoBtn.addEventListener('click', () => {
   // Clear previous preview and restart camera
   capturedPhotoBlob = null;
+  if (photoCanvas) photoCanvas.style.display = 'none';
   if (photoPreview) { photoPreview.style.display = 'none'; photoPreview.removeAttribute('src'); }
   if (retakePhotoBtn) retakePhotoBtn.disabled = true;
   if (takePhotoBtn) takePhotoBtn.disabled = false;
   startCamera();
+  // Lock recording again until selfie recaptured
+  actionBtn.disabled = true;
+  uiState = 'awaiting_selfie';
 });
 
 backBtn && backBtn.addEventListener('click', () => {
