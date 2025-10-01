@@ -1,5 +1,6 @@
 import './style.css'
 import './styles/mainpage.scss'
+import './styles/splashscreen.scss'
 
 let mediaRecorder;
 let audioChunks = [];
@@ -14,14 +15,13 @@ let capturedPhotoBlob = null; // holds captured selfie
 
 const actionBtn = document.getElementById("actionBtn");
 const restartBtn = document.getElementById("restartBtn");
+const splash = document.querySelector(".splash-screen");
 // const postControls = document.getElementById("postControls");
-const audioPlayback = document.getElementById("audioPlayback");
+const audioPlayback = document.getElementById("audioPlayback-greetings");
 const canvas = document.getElementById("visualizer");
 const ctx = canvas.getContext("2d");
 
 // Inline save elements
-const inlineSave = document.getElementById("inlineSave");
-const greetingVideo = document.getElementById("greetingVideo");
 const camera = document.getElementById("camera");
 const photoCanvas = document.getElementById("photoCanvas");
 const photoPreview = document.getElementById("photoPreview");
@@ -41,14 +41,42 @@ const greetings = [
   "/voice-note/voice4-effect.wav",
 ];
 
+const lyrics = [
+  { time: 0, text: "Hi guyss!" },
+  { time: 3, text: "Thankyou sebab datang kenduri kitaorang" },
+  { time: 6, text: "Appreciate sangat" },
+  { time: 7, text: "And..." },
+  { time: 10, text: "Hopefully you guys enjoy the weddings" },
+  { time: 12, text: "And please leave some message for us" },
+  { time: 14, text: "Okay?" },
+  { time: 15, text: "Bye-Bye!" },
+  { time: 16, text: "" }
+];
+
+let currentLine = -1;
+let activeGreetingAudio = null;
+
+function showLyric(text) {
+  const box = document.getElementById("lyricsBox");
+  if (!box) return;
+  box.classList.add("fade-out");
+  setTimeout(() => {
+    box.textContent = text;
+    box.classList.remove("fade-out");
+  }, 400);
+}
+
+
 function playRandomGreeting() {
   const randomIndex = Math.floor(Math.random() * greetings.length);
   const url = greetings[randomIndex];
   const audio = new Audio(url);
   audio.crossOrigin = 'anonymous';
+
   audio.onerror = (e) => {
     console.error('Greeting failed to load', url, e);
   };
+
   // Attach to analyser for waveform
   const ctx = getAudioContext();
   try {
@@ -61,10 +89,38 @@ function playRandomGreeting() {
   } catch (err) {
     console.warn('Could not attach greeting to analyser', err);
   }
+
+  // 🔹 Reset lyric tracking
+  currentLine = -1;
+  const box = document.getElementById("lyricsBox");
+  if (box) box.textContent = "";
+
+  // 🔹 Lyric sync while playing
+  audio.addEventListener("timeupdate", () => {
+    const current = audio.currentTime;
+    for (let i = lyrics.length - 1; i >= 0; i--) {
+      if (current >= lyrics[i].time) {
+        if (currentLine !== i) {
+          currentLine = i;
+          showLyric(lyrics[i].text);
+        }
+        break;
+      }
+    }
+  });
+
+  // 🔹 Clear lyrics when ended
+  audio.onended = () => {
+    const box = document.getElementById("lyricsBox");
+    if (box) box.textContent = "";
+  };
+
   audio.play().catch((err) => {
     console.error('Greeting failed to play', err);
   });
-  return audio; // so you can use .onended
+
+  activeGreetingAudio = audio;
+  return audio;
 }
 
 // === Waveform drawing ===
@@ -77,7 +133,7 @@ function drawWaveform(analyser) {
 
     analyser.getByteTimeDomainData(dataArray);
 
-    ctx.fillStyle = "#111";
+    ctx.fillStyle = "#000000ff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.lineWidth = 2;
@@ -185,31 +241,24 @@ async function startRecording() {
 // === Event Listeners ===
 actionBtn.addEventListener('click', async () => {
   const state = uiState || 'idle';
-  // Pause greeting video immediately on Start click
-  try {
-    if (typeof greetingVideo !== 'undefined' && greetingVideo && !greetingVideo.paused) {
-      greetingVideo.pause();
-    }
-  } catch (_) { }
+  splash.classList.add("removed");
+
 
   if (state === 'idle') {
     // Play random greeting; after it ends, show selfie section (no auto-record)
     const ctx = getAudioContext();
     actionBtn.disabled = true;
-    actionBtn.textContent = '🔊 Lutfi Speaking...';
     const audio = playRandomGreeting();
     await ctx.resume();
     audio.onended = () => {
       // stop greeting waveform; hide video; show selfie section only (lock recording)
       stopVisualizer();
-      if (greetingVideo) greetingVideo.style.display = 'none';
-      if (inlineSave) inlineSave.style.display = 'block';
       if (nameSection) nameSection.style.display = 'none';
       if (nameActions) nameActions.style.display = 'none';
-      startCamera();
+      // startCamera();
       actionBtn.disabled = true; // cannot record until selfie is taken
-      actionBtn.textContent = '🎙️ Start Recording';
-      uiState = 'awaiting_selfie';
+      // actionBtn.textContent = '🎙️ Start Recording';
+      // uiState = 'awaiting_selfie';
     };
     uiState = 'playing_greeting';
   } else if (state === 'recording') {
@@ -234,18 +283,9 @@ actionBtn.addEventListener('click', async () => {
   }
 });
 
+
 restartBtn.addEventListener('click', () => {
-  // reset UI to start state
   location.reload();
-  // postControls.style.display = 'none';
-  // if (inlineSave) inlineSave.style.display = 'none';
-  // if (nameSection) nameSection.style.display = 'none';
-  // if (nameActions) nameActions.style.display = 'none';
-  // audioPlayback.removeAttribute('src');
-  // recordedBlob = null;
-  // audioPlayback.style.display = 'none';
-  // uiState = 'idle';
-  // actionBtn.textContent = '▶️ Start';
 });
 
 // === Inline Save Flow ===
@@ -262,7 +302,7 @@ async function startCamera() {
 
 function stopCamera() {
   if (cameraStream) {
-    const tracks = cameraStream.getTracks();
+    const tracks = cameraStream.getTracks(); ``
     tracks.forEach(t => t.stop());
     cameraStream = null;
   }
@@ -331,7 +371,6 @@ retakePhotoBtn && retakePhotoBtn.addEventListener('click', () => {
 backBtn && backBtn.addEventListener('click', () => {
   // Return to post controls
   stopCamera();
-  if (inlineSave) inlineSave.style.display = 'none';
   // postControls.style.display = 'flex';
 });
 
@@ -413,6 +452,7 @@ audioPlayback.addEventListener("play", () => {
   drawWaveform(analyser);
 });
 
+
 audioPlayback.addEventListener("pause", stopVisualizer);
 audioPlayback.addEventListener("ended", () => {
   stopVisualizer();
@@ -420,3 +460,5 @@ audioPlayback.addEventListener("ended", () => {
   actionBtn.disabled = false;
   actionBtn.textContent = '▶️ Preview';
 });
+
+
