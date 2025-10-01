@@ -1,6 +1,5 @@
 import './style.css'
 import './styles/mainpage.scss'
-import './styles/splashscreen.scss'
 
 let mediaRecorder;
 let audioChunks = [];
@@ -15,7 +14,9 @@ let capturedPhotoBlob = null; // holds captured selfie
 
 const actionBtn = document.getElementById("actionBtn");
 const restartBtn = document.getElementById("restartBtn");
-const splash = document.querySelector(".splash-screen");
+const splashScreenSection = document.querySelector(".splash-screen");
+const bridesGreetingSection = document.querySelector(".brides-greeting-section");
+const selfieSection = document.querySelector(".selfie-section");
 // const postControls = document.getElementById("postControls");
 const audioPlayback = document.getElementById("audioPlayback-greetings");
 const canvas = document.getElementById("visualizer");
@@ -54,7 +55,6 @@ const lyrics = [
 ];
 
 let currentLine = -1;
-let activeGreetingAudio = null;
 
 function showLyric(text) {
   const box = document.getElementById("lyricsBox");
@@ -65,7 +65,6 @@ function showLyric(text) {
     box.classList.remove("fade-out");
   }, 400);
 }
-
 
 function playRandomGreeting() {
   const randomIndex = Math.floor(Math.random() * greetings.length);
@@ -119,7 +118,7 @@ function playRandomGreeting() {
     console.error('Greeting failed to play', err);
   });
 
-  activeGreetingAudio = audio;
+  // activeGreetingAudio = audio;
   return audio;
 }
 
@@ -137,7 +136,7 @@ function drawWaveform(analyser) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.lineWidth = 2;
-    ctx.strokeStyle = "gold"; // wedding touch ✨
+    ctx.strokeStyle = "gold";
 
     ctx.beginPath();
 
@@ -238,10 +237,10 @@ async function startRecording() {
   actionBtn.textContent = '⏹ Stop';
 }
 
-// === Event Listeners ===
+// === Main Event Listeners ===
 actionBtn.addEventListener('click', async () => {
   const state = uiState || 'idle';
-  splash.classList.add("removed");
+  splashScreenSection.classList.add("removed");
 
 
   if (state === 'idle') {
@@ -255,10 +254,12 @@ actionBtn.addEventListener('click', async () => {
       stopVisualizer();
       if (nameSection) nameSection.style.display = 'none';
       if (nameActions) nameActions.style.display = 'none';
-      // startCamera();
+      bridesGreetingSection.style.display='none';
+      selfieSection.classList.add('active');
+      startCamera();
       actionBtn.disabled = true; // cannot record until selfie is taken
       // actionBtn.textContent = '🎙️ Start Recording';
-      // uiState = 'awaiting_selfie';
+      uiState = 'awaiting_selfie';
     };
     uiState = 'playing_greeting';
   } else if (state === 'recording') {
