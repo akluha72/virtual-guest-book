@@ -14,7 +14,7 @@ let capturedPhotoBlob = null; // holds captured selfie
 
 const actionBtn = document.getElementById("actionBtn");
 const restartBtn = document.getElementById("restartBtn");
-const postControls = document.getElementById("postControls");
+// const postControls = document.getElementById("postControls");
 const audioPlayback = document.getElementById("audioPlayback");
 const canvas = document.getElementById("visualizer");
 const ctx = canvas.getContext("2d");
@@ -168,7 +168,7 @@ async function startRecording() {
     audioPlayback.src = audioUrl;
     // reveal playback and post controls
     // audioPlayback.style.display = 'block';
-    postControls.style.display = 'none';
+    // postControls.style.display = 'none';
     uiState = 'ready';
     actionBtn.textContent = '▶️ Preview';
     // After audio is recorded, unlock name entry and show Save controls
@@ -190,7 +190,7 @@ actionBtn.addEventListener('click', async () => {
     if (typeof greetingVideo !== 'undefined' && greetingVideo && !greetingVideo.paused) {
       greetingVideo.pause();
     }
-  } catch (_) {}
+  } catch (_) { }
 
   if (state === 'idle') {
     // Play random greeting; after it ends, show selfie section (no auto-record)
@@ -226,7 +226,7 @@ actionBtn.addEventListener('click', async () => {
   } else if (state === 'ready' || state === 'previewing') {
     if (!recordedBlob) return;
     // Always play from start; disable button during preview. No Pause state.
-    try { audioPlayback.currentTime = 0; } catch (_) {}
+    try { audioPlayback.currentTime = 0; } catch (_) { }
     audioPlayback.play();
     uiState = 'previewing';
     actionBtn.disabled = true;
@@ -236,15 +236,16 @@ actionBtn.addEventListener('click', async () => {
 
 restartBtn.addEventListener('click', () => {
   // reset UI to start state
-  postControls.style.display = 'none';
-  if (inlineSave) inlineSave.style.display = 'none';
-  if (nameSection) nameSection.style.display = 'none';
-  if (nameActions) nameActions.style.display = 'none';
-  audioPlayback.removeAttribute('src');
-  recordedBlob = null;
-  audioPlayback.style.display = 'none';
-  uiState = 'idle';
-  actionBtn.textContent = '▶️ Start';
+  location.reload();
+  // postControls.style.display = 'none';
+  // if (inlineSave) inlineSave.style.display = 'none';
+  // if (nameSection) nameSection.style.display = 'none';
+  // if (nameActions) nameActions.style.display = 'none';
+  // audioPlayback.removeAttribute('src');
+  // recordedBlob = null;
+  // audioPlayback.style.display = 'none';
+  // uiState = 'idle';
+  // actionBtn.textContent = '▶️ Start';
 });
 
 // === Inline Save Flow ===
@@ -266,7 +267,7 @@ function stopCamera() {
     cameraStream = null;
   }
   if (camera) {
-    try { camera.srcObject = null; } catch (_) {}
+    try { camera.srcObject = null; } catch (_) { }
   }
 }
 
@@ -331,7 +332,7 @@ backBtn && backBtn.addEventListener('click', () => {
   // Return to post controls
   stopCamera();
   if (inlineSave) inlineSave.style.display = 'none';
-  postControls.style.display = 'flex';
+  // postControls.style.display = 'flex';
 });
 
 submitBtn && submitBtn.addEventListener('click', async () => {
@@ -360,8 +361,8 @@ submitBtn && submitBtn.addEventListener('click', async () => {
     const data = await res.json().catch(() => ({ status: 'error', message: 'Invalid server response' }));
     if (data.status === 'success') {
       // Stop media and clear UI, then show Thank You screen centered
-      try { stopCamera(); } catch (_) {}
-      try { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); } catch (_) {}
+      try { stopCamera(); } catch (_) { }
+      try { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); } catch (_) { }
       const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;">\
         <div>\
           <h1 style="font-family: \'Sacramento\', cursive; font-size:3rem; margin:0 0 .5rem;">Thank you! ❤️</h1>\
@@ -396,7 +397,7 @@ audioPlayback.addEventListener("play", () => {
 
   // Disconnect previous analyser connection if present
   if (playbackAnalyser) {
-    try { playbackSourceNode.disconnect(playbackAnalyser); } catch (_) {}
+    try { playbackSourceNode.disconnect(playbackAnalyser); } catch (_) { }
   }
 
   playbackAnalyser = audioCtx.createAnalyser();
