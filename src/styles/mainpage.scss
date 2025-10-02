@@ -12,7 +12,6 @@ h1 {
     font-family: "Sacramento", cursive;
 }
 
-
 .splash-screen {
     background-color: rgb(8, 2, 2);
     height: 100vh;
@@ -24,7 +23,9 @@ h1 {
     z-index: 9999;
     opacity: 1;
     visibility: visible;
-    transition: opacity 0.6s ease, visibility 0.6s ease;
+    transition:
+        opacity 0.6s ease,
+        visibility 0.6s ease;
 
     h2 {
         font-family: "Fleur De Leah", cursive;
@@ -82,40 +83,56 @@ h1 {
     }
 }
 
-
 .selfie-section {
     display: none;
-    background-color: white;
+    background-color: black;
     width: 100%;
-    height: 100vh;
-    // display: flex;
+    height: 100dvh;
     flex-direction: column;
     align-items: center;
     justify-content: space-around;
 
     h2 {
-        color: black;
+        color: white;
     }
 
     #camera {
         width: 100%;
-        height: 400px;
-        
+        // height: 400px;
+        height: 70vh;
+        object-fit: cover;
     }
 
+    #photoPreview, #photoCanvas {
+        display: none;
+        width: 100%;
+        height: 70vh;
+        object-fit: cover;
+
+    }
 
     &.active {
         display: flex;
     }
 }
 
+.name-section {
+    height: 100dvh;
+    width: 100%;
+    display: none;
+    background-color: white;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 
-
+    h2 {
+        color: black;
+    }
+}
 
 .active-flex {
     display: flex;
 }
-
 
 #lyricsBox {
     transition: opacity 0.4s ease;

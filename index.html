@@ -29,33 +29,30 @@
     <div class="vtt-container" id="lyricsBox"> test </div>
   </section>
 
-
   <section class="selfie-section">
     <h2>Take a Selfie</h2>
     <video id="camera" autoplay playsinline muted></video>
-    <canvas id="photoCanvas"
-      style="display:none; width:100%; max-width:250px; aspect-ratio:1 / 1; object-fit:cover; border-radius:50%;"></canvas>
-    <img id="photoPreview"
-      style="display:none; width:100%; max-width:250px; aspect-ratio:1 / 1; object-fit:cover; border-radius:50%; margin: 0 auto;">
+    <canvas id="photoCanvas"></canvas>
+    <img id="photoPreview">
     <div style="margin-top:0.75rem; display:flex; gap:0.5rem; justify-content:center;">
-      <button id="takePhotoBtn">📸 Capture</button>
-      <button id="retakePhotoBtn" disabled>↩️ Retake</button>
+      <button id="retakePhotoBtn" disabled>Retake ↩️</button>
+      <button id="takePhotoBtn">Capture 📸</button>
+      <button id="nextBtn">Next ✅</button>
     </div>
   </section>
 
-  <!-- Name section at bottom (hidden until greeting ends) -->
-  <section id="nameSection" style="margin: 1rem 0; display:none;">
-    <h2>Your Name</h2>
-    <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap;">
-      <input id="guestName" type="text" placeholder="Enter your name"
-        style="padding:0.6rem 0.9rem; border-radius:8px; border:1px solid #999; min-width:260px;" />
+  <section class="name-section" id="nameSection">
+    <h2 id="displayName">Your Name</h2>
+    <input id="guestName" type="text" placeholder="Enter your name"
+      style="padding:0.6rem 0.9rem; border-radius:8px; border:1px solid #999; min-width:260px;" />
+
+    <div id="nameActions" style="margin: 1rem 0; display:none; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
+      <button id="restartBtn">🔁 Restart</button>
+      <button id="submitBtn">✅ Save</button>
     </div>
   </section>
 
-  <div id="nameActions" style="margin: 1rem 0; display:none; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
-    <button id="restartBtn">🔁 Restart</button>
-    <button id="submitBtn">✅ Save</button>
-  </div>
+
 
   <!-- <audio id="ownerGreeting" src="/greeting.mp3"></audio> -->
   <script type="module" src="/src/main.js"></script>

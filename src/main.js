@@ -17,6 +17,7 @@ const restartBtn = document.getElementById("restartBtn");
 const splashScreenSection = document.querySelector(".splash-screen");
 const bridesGreetingSection = document.querySelector(".brides-greeting-section");
 const selfieSection = document.querySelector(".selfie-section");
+const nameSection = document.querySelector(".name-section");
 // const postControls = document.getElementById("postControls");
 const audioPlayback = document.getElementById("audioPlayback-greetings");
 const canvas = document.getElementById("visualizer");
@@ -30,8 +31,9 @@ const takePhotoBtn = document.getElementById("takePhotoBtn");
 const retakePhotoBtn = document.getElementById("retakePhotoBtn");
 const guestName = document.getElementById("guestName");
 const backBtn = document.getElementById("backBtn");
+const nextBtn = document.getElementById("nextBtn");
 const submitBtn = document.getElementById("submitBtn");
-const nameSection = document.getElementById("nameSection");
+// const nameSection = document.getElementById("nameSection");
 const nameActions = document.getElementById("nameActions");
 
 canvas.width = canvas.offsetWidth;
@@ -242,7 +244,6 @@ actionBtn.addEventListener('click', async () => {
   const state = uiState || 'idle';
   splashScreenSection.classList.add("removed");
 
-
   if (state === 'idle') {
     // Play random greeting; after it ends, show selfie section (no auto-record)
     const ctx = getAudioContext();
@@ -254,15 +255,17 @@ actionBtn.addEventListener('click', async () => {
       stopVisualizer();
       if (nameSection) nameSection.style.display = 'none';
       if (nameActions) nameActions.style.display = 'none';
-      bridesGreetingSection.style.display='none';
+      bridesGreetingSection.style.display = 'none';
       selfieSection.classList.add('active');
       startCamera();
-      actionBtn.disabled = true; // cannot record until selfie is taken
+      nextBtn.disabled = true;
+      // actionBtn.disabled = true;
       // actionBtn.textContent = '🎙️ Start Recording';
-      uiState = 'awaiting_selfie';
+      // uiState = 'awaiting_selfie';
     };
     uiState = 'playing_greeting';
-  } else if (state === 'recording') {
+
+  } else if (state === 'selfie') {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
       mediaRecorder.stop();
     }
@@ -283,7 +286,6 @@ actionBtn.addEventListener('click', async () => {
     actionBtn.textContent = '▶️ Preview';
   }
 });
-
 
 restartBtn.addEventListener('click', () => {
   location.reload();
@@ -313,12 +315,12 @@ function stopCamera() {
 }
 
 // (Selfie section is shown after greeting ends in the click handler above)
-
 // Removed Save/Send button flow; inline save shows after stop
-
 takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
   if (!camera) return;
   const video = camera;
+  nextBtn.disabled = false;
+
   // Use a centered square crop to match circular frame
   const vw = video.videoWidth || 520;
   const vh = video.videoHeight || 520;
@@ -337,10 +339,6 @@ takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
       if (photoPreview) {
         photoPreview.src = url;
         photoPreview.style.display = 'block';
-        // Ensure circular styling if desired
-        if (!photoPreview.style.borderRadius) photoPreview.style.borderRadius = '50%';
-        if (!photoPreview.style.aspectRatio) photoPreview.style.aspectRatio = '1 / 1';
-        if (!photoPreview.style.objectFit) photoPreview.style.objectFit = 'cover';
       }
       // Hide canvas when using IMG preview
       if (photoCanvas) photoCanvas.style.display = 'none';
@@ -357,6 +355,8 @@ takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
 });
 
 retakePhotoBtn && retakePhotoBtn.addEventListener('click', () => {
+  if (camera) camera.style.display = 'block';
+
   // Clear previous preview and restart camera
   capturedPhotoBlob = null;
   if (photoCanvas) photoCanvas.style.display = 'none';
@@ -373,6 +373,12 @@ backBtn && backBtn.addEventListener('click', () => {
   // Return to post controls
   stopCamera();
   // postControls.style.display = 'flex';
+});
+
+nextBtn && nextBtn.addEventListener('click', async () => {
+  selfieSection.style.display = 'none';
+  nameSection.style.display = 'flex';
+  nameActions.style.display = 'flex';
 });
 
 submitBtn && submitBtn.addEventListener('click', async () => {
@@ -463,3 +469,10 @@ audioPlayback.addEventListener("ended", () => {
 });
 
 
+// live text input: 
+const guestNameInput = document.getElementById("guestName");
+const displayName = document.getElementById("displayName");
+
+guestNameInput.addEventListener("input", () => {
+  displayName.textContent = guestNameInput.value.trim() || "Your Name";
+});
