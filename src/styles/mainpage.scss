@@ -135,13 +135,17 @@ h1 {
 .guest-wishes-section {
     text-align: center;
     max-width: 500px;
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     background: white;
     width: 100%;
     height: 100vh;
+
+    h2 {
+        color: white;
+    }
 
     #visualizer {
         width: 100%;

@@ -18,6 +18,7 @@ const submitNameBtn = document.getElementById("submitNameBtn");
 const submitSelfieBtn = document.getElementById("submitSelfieBtn");
 const takePhotoBtn = document.getElementById("takePhotoBtn");
 const retakePhotoBtn = document.getElementById("retakePhotoBtn");
+const recordBtn = document.getElementById("recordBtn");
 const backBtn = document.getElementById("backBtn");
 const submitBtn = document.getElementById("submitBtn");
 
@@ -28,6 +29,8 @@ const nameSection = document.querySelector(".name-section");
 const guestWishesSection = document.querySelector(".guest-wishes-section");
 const audioPlayback = document.getElementById("audioPlayback-greetings");
 const canvas = document.getElementById("visualizer");
+const canvas2 = document.getElementById("visualizer");
+
 const ctx = canvas.getContext("2d");
 
 // Inline save elements
@@ -225,19 +228,17 @@ async function startRecording() {
 
     audioPlayback.src = audioUrl;
     // reveal playback and post controls
-    // audioPlayback.style.display = 'block';
-    // postControls.style.display = 'none';
+    audioPlayback.style.display = 'block';
+    postControls.style.display = 'none';
     uiState = 'ready';
-    actionBtn.textContent = '▶️ Preview';
+    // actionBtn.textContent = '▶️ Preview';
     // After audio is recorded, unlock name entry and show Save controls
-    if (nameSection) nameSection.style.display = 'block';
-    if (nameActions) nameActions.style.display = 'flex';
   });
 
   drawWaveform(analyser);
 
   uiState = 'recording';
-  actionBtn.textContent = '⏹ Stop';
+  // actionBtn.textContent = '⏹ Stop';
 }
 
 // === Main Event Listeners ===
@@ -254,9 +255,10 @@ actionBtn.addEventListener('click', async () => {
     audio.onended = () => {
       // stop greeting waveform; hide video; show selfie section only (lock recording)
       stopVisualizer();
-      if (nameSection) nameSection.style.display = 'none';
-      if (nameActions) nameActions.style.display = 'none';
+      nameSection.style.display = 'none';
+      nameActions.style.display = 'none';
       bridesGreetingSection.style.display = 'none';
+      // guestWishesSection.style.display = 'none';
       selfieSection.classList.add('active');
       startCamera();
       // actionBtn.disabled = true;
@@ -273,7 +275,7 @@ actionBtn.addEventListener('click', async () => {
     // move to ready; actual UI changes are handled in recorder.stop handler
   } else if (state === 'awaiting_recording') {
     // User starts recording after selfie section is shown
-    startRecording();
+    // startRecording();
   } else if (state === 'awaiting_selfie') {
     alert('Please take a selfie first.');
   } else if (state === 'ready' || state === 'previewing') {
@@ -283,7 +285,7 @@ actionBtn.addEventListener('click', async () => {
     audioPlayback.play();
     uiState = 'previewing';
     actionBtn.disabled = true;
-    actionBtn.textContent = '▶️ Preview';
+    // actionBtn.textContent = '▶️ Preview';
   }
 });
 
@@ -375,7 +377,6 @@ backBtn && backBtn.addEventListener('click', () => {
   // postControls.style.display = 'flex';
 });
 
-
 // all button event listener
 submitSelfieBtn && submitSelfieBtn.addEventListener('click', async () => {
   selfieSection.style.display = 'none';
@@ -384,12 +385,17 @@ submitSelfieBtn && submitSelfieBtn.addEventListener('click', async () => {
 });
 
 submitNameBtn && submitNameBtn.addEventListener('click', async () => {
-  console.log("submit Name Btn");
+  // console.log("submit Name Btn");
   //this section should hide the name-section entirely
   //save the name
   // display the guest-whishes-section. 
   nameSection.style.display = 'none';
   guestWishesSection.style.display = 'flex';
+});
+
+
+recordBtn && recordBtn.addEventListener('click', () => {
+  startRecording();
 });
 
 submitBtn && submitBtn.addEventListener('click', async () => {
