@@ -22,7 +22,6 @@
   </section>
 
   <section class="brides-greeting-section">
-    <!-- Voice recording section (moved above Name) -->
     <canvas id="visualizer"
       style="width:100%; height:120px; background: black; border-radius:8px; display:block; margin: 0.75rem auto;"></canvas>
     <audio id="audioPlayback-greetings" controls style="display:none"></audio>
@@ -37,7 +36,7 @@
     <div style="margin-top:0.75rem; display:flex; gap:0.5rem; justify-content:center;">
       <button id="retakePhotoBtn" disabled>Retake ↩️</button>
       <button id="takePhotoBtn">Capture 📸</button>
-      <button id="nextBtn">Next ✅</button>
+      <button id="submitSelfieBtn" disabled>Next ✅</button>
     </div>
   </section>
 
@@ -48,8 +47,20 @@
 
     <div id="nameActions" style="margin: 1rem 0; display:none; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
       <button id="restartBtn">🔁 Restart</button>
-      <button id="submitBtn">✅ Save</button>
+      <button id="submitNameBtn">Next ✅</button>
     </div>
+  </section>
+
+  <section class="guest-wishes-section">
+    <canvas id="visualizer"></canvas>
+
+    <button id="actionBtn" class="record-btn idle">🎤 Start</button>
+
+    <div id="postControls">
+      <button id="restartBtn">↩️ Restart</button>
+    </div>
+
+    <audio id="audioPlayback" controls></audio>
   </section>
 
 

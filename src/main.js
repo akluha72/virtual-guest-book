@@ -14,11 +14,18 @@ let capturedPhotoBlob = null; // holds captured selfie
 
 const actionBtn = document.getElementById("actionBtn");
 const restartBtn = document.getElementById("restartBtn");
+const submitNameBtn = document.getElementById("submitNameBtn");
+const submitSelfieBtn = document.getElementById("submitSelfieBtn");
+const takePhotoBtn = document.getElementById("takePhotoBtn");
+const retakePhotoBtn = document.getElementById("retakePhotoBtn");
+const backBtn = document.getElementById("backBtn");
+const submitBtn = document.getElementById("submitBtn");
+
 const splashScreenSection = document.querySelector(".splash-screen");
 const bridesGreetingSection = document.querySelector(".brides-greeting-section");
 const selfieSection = document.querySelector(".selfie-section");
 const nameSection = document.querySelector(".name-section");
-// const postControls = document.getElementById("postControls");
+const guestWishesSection = document.querySelector(".guest-wishes-section");
 const audioPlayback = document.getElementById("audioPlayback-greetings");
 const canvas = document.getElementById("visualizer");
 const ctx = canvas.getContext("2d");
@@ -27,13 +34,7 @@ const ctx = canvas.getContext("2d");
 const camera = document.getElementById("camera");
 const photoCanvas = document.getElementById("photoCanvas");
 const photoPreview = document.getElementById("photoPreview");
-const takePhotoBtn = document.getElementById("takePhotoBtn");
-const retakePhotoBtn = document.getElementById("retakePhotoBtn");
 const guestName = document.getElementById("guestName");
-const backBtn = document.getElementById("backBtn");
-const nextBtn = document.getElementById("nextBtn");
-const submitBtn = document.getElementById("submitBtn");
-// const nameSection = document.getElementById("nameSection");
 const nameActions = document.getElementById("nameActions");
 
 canvas.width = canvas.offsetWidth;
@@ -258,7 +259,6 @@ actionBtn.addEventListener('click', async () => {
       bridesGreetingSection.style.display = 'none';
       selfieSection.classList.add('active');
       startCamera();
-      nextBtn.disabled = true;
       // actionBtn.disabled = true;
       // actionBtn.textContent = '🎙️ Start Recording';
       // uiState = 'awaiting_selfie';
@@ -319,7 +319,7 @@ function stopCamera() {
 takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
   if (!camera) return;
   const video = camera;
-  nextBtn.disabled = false;
+  submitSelfieBtn.disabled = false;
 
   // Use a centered square crop to match circular frame
   const vw = video.videoWidth || 520;
@@ -365,7 +365,7 @@ retakePhotoBtn && retakePhotoBtn.addEventListener('click', () => {
   if (takePhotoBtn) takePhotoBtn.disabled = false;
   startCamera();
   // Lock recording again until selfie recaptured
-  actionBtn.disabled = true;
+  submitSelfieBtn.disabled = true;
   uiState = 'awaiting_selfie';
 });
 
@@ -375,14 +375,27 @@ backBtn && backBtn.addEventListener('click', () => {
   // postControls.style.display = 'flex';
 });
 
-nextBtn && nextBtn.addEventListener('click', async () => {
+
+// all button event listener
+submitSelfieBtn && submitSelfieBtn.addEventListener('click', async () => {
   selfieSection.style.display = 'none';
   nameSection.style.display = 'flex';
   nameActions.style.display = 'flex';
 });
 
+submitNameBtn && submitNameBtn.addEventListener('click', async () => {
+  console.log("submit Name Btn");
+  //this section should hide the name-section entirely
+  //save the name
+  // display the guest-whishes-section. 
+  nameSection.style.display = 'none';
+  guestWishesSection.style.display = 'flex';
+});
+
 submitBtn && submitBtn.addEventListener('click', async () => {
   if (!recordedBlob) return;
+  console.log("submit");
+
   const form = new FormData();
   form.append('guest_name', (guestName && guestName.value) || '');
   // auto-fill today's date in YYYY-MM-DD

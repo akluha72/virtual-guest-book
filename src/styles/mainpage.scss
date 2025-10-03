@@ -35,9 +35,7 @@ h1 {
     }
 
     .start-button {
-        // background-color: white;
         width: 100%;
-        // max-width: 150px;
         border-radius: 30px;
         padding: 5px;
         text-align: center;
@@ -103,12 +101,12 @@ h1 {
         object-fit: cover;
     }
 
-    #photoPreview, #photoCanvas {
+    #photoPreview,
+    #photoCanvas {
         display: none;
         width: 100%;
         height: 70vh;
         object-fit: cover;
-
     }
 
     &.active {
@@ -132,6 +130,94 @@ h1 {
 
 .active-flex {
     display: flex;
+}
+
+.guest-wishes-section {
+    text-align: center;
+    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    width: 100%;
+    height: 100vh;
+
+    #visualizer {
+        width: 100%;
+        height: 120px;
+        background: #111;
+        border-radius: 8px;
+        display: block;
+        margin: 0.75rem auto;
+    }
+
+    .record-btn {
+        background: #444;
+        color: #fff;
+        font-size: 1.2rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 50px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.25s ease-in-out;
+        max-width: 200px;
+        margin: 0;
+
+        &.idle {
+            background: #2c7be5; // blue
+        }
+
+        &.recording {
+            background: #e63946; // red
+            animation: pulse 1.2s infinite;
+        }
+
+        &.stopped {
+            background: #43aa8b; // green
+        }
+    }
+
+    #postControls {
+        margin-top: 1rem;
+        display: none;
+        gap: 0.5rem;
+        justify-content: center;
+
+        button {
+            background: #888;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+
+            &:hover {
+                background: #666;
+            }
+        }
+    }
+
+    audio {
+        display: none;
+        margin-top: 1rem;
+        width: 100%;
+    }
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 #lyricsBox {
