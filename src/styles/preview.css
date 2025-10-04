@@ -1,0 +1,321 @@
+/* Preview page styles - Full screen swipeable cards */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
+  height: 100vh;
+}
+
+#previewContainer {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  text-align: center;
+  color: white;
+}
+
+.empty-content {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 3rem 2rem;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 400px;
+  width: 90%;
+}
+
+.empty-content .empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.empty-content h1 {
+  font-family: 'Sacramento', cursive;
+  font-size: 2.5rem;
+  margin: 0 0 1rem;
+  font-weight: 400;
+}
+
+.empty-content p {
+  font-size: 1.1rem;
+  margin: 0;
+  opacity: 0.9;
+}
+
+/* Swipe container */
+.swipe-container {
+  width: 100%;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.cards-wrapper {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Guest card */
+.guest-card {
+  min-width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+.card-content {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 24px;
+  padding: 2rem;
+  text-align: center;
+  color: white;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+/* Photo container */
+.photo-container {
+  margin-bottom: 2rem;
+}
+
+.photo-container .guest-photo {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease;
+}
+
+.photo-container .guest-photo:hover {
+  transform: scale(1.05);
+}
+
+/* Guest info */
+.guest-info {
+  margin-bottom: 2rem;
+}
+
+.guest-info .guest-name {
+  font-family: 'Sacramento', cursive;
+  font-size: 3rem;
+  margin: 0 0 0.5rem;
+  font-weight: 400;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.guest-info .guest-date {
+  font-size: 1.1rem;
+  margin: 0;
+  opacity: 0.8;
+  font-weight: 300;
+}
+
+/* Audio section */
+.audio-section .audio-visualizer {
+  width: 100%;
+  height: 120px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.audio-section .audio-player {
+  display: none;
+}
+
+.audio-section .play-button {
+  background: rgba(0, 122, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(0, 122, 255, 0.4);
+  padding: 0.75rem 2rem;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.3px;
+}
+
+.audio-section .play-button:hover {
+  transform: translateY(-1px);
+  background: rgba(0, 122, 255, 0.3);
+  border-color: rgba(0, 122, 255, 0.5);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.audio-section .play-button:active {
+  transform: translateY(0);
+  background: rgba(0, 122, 255, 0.25);
+}
+
+.audio-section .play-button.playing {
+  background: rgba(255, 59, 48, 0.2);
+  border-color: rgba(255, 59, 48, 0.4);
+}
+
+.audio-section .play-button.playing:hover {
+  background: rgba(255, 59, 48, 0.3);
+  border-color: rgba(255, 59, 48, 0.5);
+}
+
+/* Navigation dots */
+.nav-dots {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  z-index: 10;
+}
+
+.nav-dots .dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.nav-dots .dot.active {
+  background: rgba(255, 255, 255, 0.8);
+  transform: scale(1.2);
+}
+
+.nav-dots .dot:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+/* Navigation arrows */
+.nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  font-size: 2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+.nav-arrow:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+}
+
+.nav-arrow:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.nav-arrow.nav-prev {
+  left: 2rem;
+}
+
+.nav-arrow.nav-next {
+  right: 2rem;
+}
+
+.nav-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.nav-arrow:disabled:hover {
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .card-content {
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+  
+  .photo-container .guest-photo {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .guest-info .guest-name {
+    font-size: 2.5rem;
+  }
+  
+  .nav-arrow {
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+  }
+  
+  .nav-arrow.nav-prev {
+    left: 1rem;
+  }
+  
+  .nav-arrow.nav-next {
+    right: 1rem;
+  }
+  
+  .nav-dots {
+    bottom: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .guest-card {
+    padding: 1rem;
+  }
+  
+  .card-content {
+    padding: 1rem;
+  }
+  
+  .photo-container .guest-photo {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .guest-info .guest-name {
+    font-size: 2rem;
+  }
+  
+  .audio-section .audio-visualizer {
+    height: 80px;
+  }
+}

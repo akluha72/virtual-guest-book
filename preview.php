@@ -22,6 +22,7 @@ if ($result = $conn->query($sql)) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sacramento&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Fleur+De+Leah&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/preview.css">
   <script type="module" src="/src/scripts/preview.js"></script>
 </head>
 <body>

@@ -554,13 +554,16 @@ submitBtn && submitBtn.addEventListener('click', async () => {
     if (data.status === 'success') {
       try { stopCamera(); } catch (_) { }
       try { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); } catch (_) { }
-      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;font-family:system-ui,-apple-system,sans-serif;">\
-        <div style="background:rgba(255,255,255,0.1);padding:3rem 2rem;border-radius:20px;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);box-shadow:0 8px 32px rgba(0,0,0,0.3);max-width:400px;width:90%;">\
-          <div style="font-size:4rem;margin-bottom:1rem;">🎉</div>\
-          <h1 style="font-family:\'Sacramento\',cursive;font-size:3.5rem;margin:0 0 1rem;font-weight:400;">Thank you!</h1>\
-          <p style="font-size:1.2rem;margin:0 0 2rem;opacity:0.9;">Your message has been saved successfully</p>\
-          <div style="font-size:2rem;opacity:0.8;">❤️</div>\
+      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#000000;color:white;font-family:system-ui,-apple-system,sans-serif;">\
+        <div style="background:rgba(255,255,255,0.05);padding:4rem 3rem;border-radius:16px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%;">\
+          <div style="width:80px;height:80px;background:linear-gradient(135deg, #007AFF, #5856D6);border-radius:50%;margin:0 auto 2rem;display:flex;align-items:center;justify-content:center;">\
+            <div style="width:32px;height:32px;border:3px solid white;border-top:3px solid transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>\
+          </div>\
+          <h1 style="font-family:\'Sacramento\',cursive;font-size:3rem;margin:0 0 1.5rem;font-weight:400;letter-spacing:1px;">Thank You</h1>\
+          <p style="font-size:1.1rem;margin:0 0 2rem;opacity:0.8;line-height:1.6;font-weight:300;">Your message has been successfully saved to our guestbook.</p>\
+          <div style="width:60px;height:2px;background:linear-gradient(90deg, #007AFF, #5856D6);margin:0 auto;border-radius:1px;"></div>\
         </div>\
+        <style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>\
       </div>';
       document.body.innerHTML = html;
       return;
@@ -637,13 +640,16 @@ saveRecordingBtn && saveRecordingBtn.addEventListener('click', async () => {
     
     if (data.status === 'success') {
       // Show success message
-      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;font-family:system-ui,-apple-system,sans-serif;">\
-        <div style="background:rgba(255,255,255,0.1);padding:3rem 2rem;border-radius:20px;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);box-shadow:0 8px 32px rgba(0,0,0,0.3);max-width:400px;width:90%;">\
-          <div style="font-size:4rem;margin-bottom:1rem;">🎉</div>\
-          <h1 style="font-family:\'Sacramento\',cursive;font-size:3.5rem;margin:0 0 1rem;font-weight:400;">Thank you!</h1>\
-          <p style="font-size:1.2rem;margin:0 0 2rem;opacity:0.9;">Your message has been saved successfully</p>\
-          <div style="font-size:2rem;opacity:0.8;">❤️</div>\
+      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#000000;color:white;font-family:system-ui,-apple-system,sans-serif;">\
+        <div style="background:rgba(255,255,255,0.05);padding:4rem 3rem;border-radius:16px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%;">\
+          <div style="width:80px;height:80px;background:linear-gradient(135deg, #007AFF, #5856D6);border-radius:50%;margin:0 auto 2rem;display:flex;align-items:center;justify-content:center;">\
+            <div style="width:32px;height:32px;border:3px solid white;border-top:3px solid transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>\
+          </div>\
+          <h1 style="font-family:\'Sacramento\',cursive;font-size:3rem;margin:0 0 1.5rem;font-weight:400;letter-spacing:1px;">Thank You</h1>\
+          <p style="font-size:1.1rem;margin:0 0 2rem;opacity:0.8;line-height:1.6;font-weight:300;">Your message has been successfully saved to our guestbook.</p>\
+          <div style="width:60px;height:2px;background:linear-gradient(90deg, #007AFF, #5856D6);margin:0 auto;border-radius:1px;"></div>\
         </div>\
+        <style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>\
       </div>';
       document.body.innerHTML = html;
     } else {

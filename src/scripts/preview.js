@@ -1,4 +1,4 @@
-import "../styles/preview.scss";
+import "../styles/preview.css";
 
 class PreviewPage {
   constructor() {
