@@ -21,37 +21,59 @@ if ($result = $conn->query($sql)) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sacramento&display=swap" rel="stylesheet">
-  <script type="module" src="/src/preview.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fleur+De+Leah&display=swap" rel="stylesheet">
+  <script type="module" src="/src/scripts/preview.js"></script>
 </head>
 <body>
-  <div id="storiesRoot" style="max-width:720px; margin: 0 auto; padding: 1rem;">
-    <h1 style="font-family: 'Sacramento', cursive; text-align:center;">Guestbook Stories</h1>
+  <div id="previewContainer">
     <?php if (empty($entries)): ?>
-      <p style="text-align:center; opacity:0.7;">No entries yet.</p>
+      <div class="empty-state">
+        <div class="empty-content">
+          <div class="empty-icon">📝</div>
+          <h1>No entries yet</h1>
+          <p>Be the first to leave a message!</p>
+        </div>
+      </div>
     <?php else: ?>
-      <div class="stories-column">
-        <?php foreach ($entries as $e):
-          $name = htmlspecialchars($e['guest_name'] ?? '');
-          $date = htmlspecialchars($e['event_date'] ?? '');
-          $photo = htmlspecialchars($e['photo'] ?? '');
-          $audio = htmlspecialchars($e['audio'] ?? '');
-        ?>
-        <article class="story-card">
-          <header class="story-header">
-            <img class="story-avatar" src="<?php echo $photo ? $photo : '/vite.svg'; ?>" alt="avatar" />
-            <div class="story-meta">
-              <div class="story-name"><?php echo $name ?: 'Guest'; ?></div>
-              <div class="story-date"><?php echo $date; ?></div>
+      <div class="swipe-container" id="swipeContainer">
+        <div class="cards-wrapper" id="cardsWrapper">
+          <?php foreach ($entries as $index => $e):
+            $name = htmlspecialchars($e['guest_name'] ?? '');
+            $date = htmlspecialchars($e['event_date'] ?? '');
+            $photo = htmlspecialchars($e['photo'] ?? '');
+            $audio = htmlspecialchars($e['audio'] ?? '');
+          ?>
+          <div class="guest-card" data-index="<?php echo $index; ?>">
+            <div class="card-content">
+              <div class="photo-container">
+                <img class="guest-photo" src="<?php echo $photo ? $photo : '/vite.svg'; ?>" alt="<?php echo $name ?: 'Guest'; ?>" />
+              </div>
+              <div class="guest-info">
+                <h2 class="guest-name"><?php echo $name ?: 'Guest'; ?></h2>
+                <p class="guest-date"><?php echo $date; ?></p>
+              </div>
+              <?php if ($audio): ?>
+              <div class="audio-section">
+                <canvas class="audio-visualizer" width="400" height="120"></canvas>
+                <audio class="audio-player" preload="metadata" src="<?php echo $audio; ?>"></audio>
+                <button class="play-button">▶️ Play</button>
+              </div>
+              <?php endif; ?>
             </div>
-          </header>
-          <?php if ($audio): ?>
-          <div class="story-audio">
-            <audio controls preload="metadata" src="<?php echo $audio; ?>"></audio>
-            <canvas class="story-wave" height="84"></canvas>
           </div>
-          <?php endif; ?>
-        </article>
-        <?php endforeach; ?>
+          <?php endforeach; ?>
+        </div>
+        
+        <!-- Navigation dots -->
+        <div class="nav-dots">
+          <?php for ($i = 0; $i < count($entries); $i++): ?>
+            <span class="dot <?php echo $i === 0 ? 'active' : ''; ?>" data-index="<?php echo $i; ?>"></span>
+          <?php endfor; ?>
+        </div>
+        
+        <!-- Navigation arrows -->
+        <button class="nav-arrow nav-prev" id="prevBtn">‹</button>
+        <button class="nav-arrow nav-next" id="nextBtn">›</button>
       </div>
     <?php endif; ?>
   </div>

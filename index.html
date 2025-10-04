@@ -53,12 +53,13 @@
 
   <section class="guest-wishes-section">
     <h2>What you got to say?</h2>
-    <canvas id="visualizer"></canvas>
+    <canvas id="visualizer2" style="width:100%; height:120px; background: black; border-radius:8px; display:block; margin: 0.75rem auto;"></canvas>
     <button id="recordBtn" class="record-btn idle">🎤 Start</button>
-    <div id="postControls">
-      <button id="restartBtn">↩️ Restart</button>
+    <div id="postControls" style="display:none;">
+      <button id="restartRecordingBtn">🔄 Restart</button>
+      <button id="saveRecordingBtn">💾 Save</button>
     </div>
-    <audio id="audioPlayback" controls></audio>
+    <audio id="audioPlayback" controls style="display:none;"></audio>
   </section>
 
   <!-- <audio id="ownerGreeting" src="/greeting.mp3"></audio> -->
