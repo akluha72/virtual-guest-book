@@ -76,7 +76,6 @@ function getAudioContext() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  if (audioCtx.state === "suspended") audioCtx.resume();
   return audioCtx;
 }
 
@@ -338,65 +337,93 @@ function previewRecording() {
     return;
   }
 
+  // iOS Safari requires user interaction to start audio context
   const ctx = getAudioContext();
+  
+  // Ensure audio context is running on iOS
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(() => {
+      setupAudioPlayback();
+    }).catch(err => {
+      console.warn('Could not resume audio context:', err);
+      // Fallback: play without visualizer
+      audioPlaybackGuest.play().catch(playErr => {
+        console.error('Audio play failed:', playErr);
+      });
+    });
+  } else {
+    setupAudioPlayback();
+  }
 
-  // create MediaElementSource only once for this guest playback element
-  if (!playbackSourceNode) {
+  function setupAudioPlayback() {
+    // create MediaElementSource only once for this guest playback element
+    if (!playbackSourceNode) {
+      try {
+        playbackSourceNode = ctx.createMediaElementSource(audioPlaybackGuest);
+      } catch (e) {
+        console.warn("Could not create MediaElementSource for guest playback", e);
+        // fallback: just play the audio without waveform
+        audioPlaybackGuest.play().catch(playErr => {
+          console.error('Audio play failed:', playErr);
+        });
+        return;
+      }
+    }
+
+    // disconnect previous analyser if present
     try {
-      playbackSourceNode = ctx.createMediaElementSource(audioPlaybackGuest);
+      if (playbackAnalyser) {
+        playbackSourceNode.disconnect(playbackAnalyser);
+        playbackAnalyser.disconnect(ctx.destination);
+        // also stop any visualizer tied to canvas2
+        stopVisualizer(canvas2);
+      }
+    } catch (e) { /* ignore */ }
+
+    // create a fresh analyser for playback
+    playbackAnalyser = ctx.createAnalyser();
+    playbackAnalyser.fftSize = 2048;
+    try {
+      playbackSourceNode.connect(playbackAnalyser);
+      playbackAnalyser.connect(ctx.destination);
     } catch (e) {
-      console.warn("Could not create MediaElementSource for guest playback", e);
-      // fallback: just play the audio without waveform
-      audioPlaybackGuest.play();
-      return;
+      console.warn('Playback graph connection issue', e);
     }
-  }
 
-  // disconnect previous analyser if present
-  try {
-    if (playbackAnalyser) {
-      playbackSourceNode.disconnect(playbackAnalyser);
-      playbackAnalyser.disconnect(ctx.destination);
-      // also stop any visualizer tied to canvas2
-      stopVisualizer(canvas2);
+    // draw waveform while previewing on guest canvas (canvas2)
+    const viz = drawWaveform(playbackAnalyser, canvas2);
+
+    // play with iOS compatibility
+    const playPromise = audioPlaybackGuest.play();
+    
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        // Audio started successfully
+        currentState = "previewing";
+        recordBtn.textContent = "⏸️ Playing";
+        recordBtn.classList.remove("preview");
+        recordBtn.classList.add("playing");
+      }).catch(err => {
+        console.error('Playback failed', err);
+        // stop visualizer if play fails
+        if (viz && typeof viz.stop === 'function') viz.stop();
+        // Reset button state
+        currentState = "stopped";
+        recordBtn.textContent = "▶️ Preview";
+        recordBtn.classList.remove("playing");
+        recordBtn.classList.add("preview");
+      });
     }
-  } catch (e) { /* ignore */ }
 
-  // create a fresh analyser for playback
-  playbackAnalyser = ctx.createAnalyser();
-  playbackAnalyser.fftSize = 2048;
-  try {
-    playbackSourceNode.connect(playbackAnalyser);
-    playbackAnalyser.connect(ctx.destination);
-  } catch (e) {
-    console.warn('Playback graph connection issue', e);
+    // when finished, stop visualizer and show preview again
+    audioPlaybackGuest.onended = () => {
+      if (viz && typeof viz.stop === 'function') viz.stop();
+      currentState = "stopped";
+      recordBtn.textContent = "▶️ Preview Again";
+      recordBtn.classList.remove("playing");
+      recordBtn.classList.add("preview");
+    };
   }
-
-  // draw waveform while previewing on guest canvas (canvas2)
-  const viz = drawWaveform(playbackAnalyser, canvas2);
-
-  // play
-  audioPlaybackGuest.play().catch(err => {
-    console.error('Playback failed', err);
-    // stop visualizer if play fails
-    if (viz && typeof viz.stop === 'function') viz.stop();
-    return;
-  });
-
-  // when finished, stop visualizer and show preview again
-  audioPlaybackGuest.onended = () => {
-    if (viz && typeof viz.stop === 'function') viz.stop();
-    currentState = "stopped";
-    recordBtn.textContent = "▶️ Preview";
-    recordBtn.classList.remove("playing");
-    recordBtn.classList.add("preview");
-  };
-
-  // update UI
-  currentState = "previewing";
-  recordBtn.textContent = "⏸️ Playing";
-  recordBtn.classList.remove("preview");
-  recordBtn.classList.add("playing");
 }
 
 /* ---------------- camera / selfie helpers ---------------- */
@@ -418,6 +445,20 @@ function stopCamera() {
     try { camera.srcObject = null; } catch (_) { }
   }
 }
+
+/* ---------------- iOS audio context initialization ---------------- */
+// iOS requires user interaction to start audio context
+function initializeAudioContext() {
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(err => {
+      console.warn('Could not resume audio context:', err);
+    });
+  }
+}
+
+// Initialize audio context on first user interaction
+document.addEventListener('touchstart', initializeAudioContext, { once: true });
+document.addEventListener('click', initializeAudioContext, { once: true });
 
 /* ---------------- UI event wiring ---------------- */
 actionBtn && actionBtn.addEventListener('click', async () => {
@@ -556,14 +597,10 @@ submitBtn && submitBtn.addEventListener('click', async () => {
       try { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); } catch (_) { }
       const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#000000;color:white;font-family:system-ui,-apple-system,sans-serif;">\
         <div style="background:rgba(255,255,255,0.05);padding:4rem 3rem;border-radius:16px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%;">\
-          <div style="width:80px;height:80px;background:linear-gradient(135deg, #007AFF, #5856D6);border-radius:50%;margin:0 auto 2rem;display:flex;align-items:center;justify-content:center;">\
-            <div style="width:32px;height:32px;border:3px solid white;border-top:3px solid transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>\
-          </div>\
           <h1 style="font-family:\'Sacramento\',cursive;font-size:3rem;margin:0 0 1.5rem;font-weight:400;letter-spacing:1px;">Thank You</h1>\
           <p style="font-size:1.1rem;margin:0 0 2rem;opacity:0.8;line-height:1.6;font-weight:300;">Your message has been successfully saved to our guestbook.</p>\
           <div style="width:60px;height:2px;background:linear-gradient(90deg, #007AFF, #5856D6);margin:0 auto;border-radius:1px;"></div>\
         </div>\
-        <style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>\
       </div>';
       document.body.innerHTML = html;
       return;
@@ -642,14 +679,10 @@ saveRecordingBtn && saveRecordingBtn.addEventListener('click', async () => {
       // Show success message
       const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#000000;color:white;font-family:system-ui,-apple-system,sans-serif;">\
         <div style="background:rgba(255,255,255,0.05);padding:4rem 3rem;border-radius:16px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%;">\
-          <div style="width:80px;height:80px;background:linear-gradient(135deg, #007AFF, #5856D6);border-radius:50%;margin:0 auto 2rem;display:flex;align-items:center;justify-content:center;">\
-            <div style="width:32px;height:32px;border:3px solid white;border-top:3px solid transparent;border-radius:50%;animation:spin 1s linear infinite;"></div>\
-          </div>\
           <h1 style="font-family:\'Sacramento\',cursive;font-size:3rem;margin:0 0 1.5rem;font-weight:400;letter-spacing:1px;">Thank You</h1>\
           <p style="font-size:1.1rem;margin:0 0 2rem;opacity:0.8;line-height:1.6;font-weight:300;">Your message has been successfully saved to our guestbook.</p>\
           <div style="width:60px;height:2px;background:linear-gradient(90deg, #007AFF, #5856D6);margin:0 auto;border-radius:1px;"></div>\
         </div>\
-        <style>@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>\
       </div>';
       document.body.innerHTML = html;
     } else {
