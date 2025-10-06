@@ -7,6 +7,9 @@ let audioChunks = [];
 let recordedBlob = null;
 let animationId;
 
+// Selected mime type for MediaRecorder (decided at runtime based on support)
+let selectedAudioMimeType = null;
+
 let audioCtx = null;
 let analyser = null;            // generic analyser (when needed)
 let playbackSourceNode = null;  // cached MediaElementSource for guest playback
@@ -37,6 +40,14 @@ const guestWishesSection = document.querySelector(".guest-wishes-section");
 // NOTE: two separate audio elements in the DOM
 const audioPlaybackGuest = document.getElementById("audioPlayback"); // for recorded messages (guest)
 const audioPlaybackGreetings = document.getElementById("audioPlayback-greetings"); // (if used)
+
+// Ensure inline playback on iOS
+if (audioPlaybackGuest) {
+  try { audioPlaybackGuest.setAttribute('playsinline', ''); } catch (_) {}
+}
+if (audioPlaybackGreetings) {
+  try { audioPlaybackGreetings.setAttribute('playsinline', ''); } catch (_) {}
+}
 
 const canvas = document.getElementById("visualizer");   // greeting canvas
 const canvas2 = document.getElementById("visualizer2"); // guest recording canvas
@@ -266,8 +277,28 @@ async function startRecording() {
     // store for cleanup
     currentRecording = { stream, sourceNode, analyser: micAnalyser, vizController };
 
-    // setup MediaRecorder
-    mediaRecorder = new MediaRecorder(stream);
+    // Decide best supported audio mime type (iOS Safari prefers AAC in MP4)
+    if (!selectedAudioMimeType) {
+      const candidates = [
+        'audio/mp4;codecs=mp4a.40.2', // AAC in MP4 container
+        'audio/mp4',                   // generic MP4
+        'audio/webm;codecs=opus',     // Opus in WebM
+        'audio/webm'                   // generic WebM
+      ];
+      selectedAudioMimeType = candidates.find(t => {
+        try { return window.MediaRecorder && MediaRecorder.isTypeSupported(t); } catch (_) { return false; }
+      }) || '';
+    }
+
+    // setup MediaRecorder with preferred type if available
+    try {
+      mediaRecorder = selectedAudioMimeType
+        ? new MediaRecorder(stream, { mimeType: selectedAudioMimeType })
+        : new MediaRecorder(stream);
+    } catch (err) {
+      // Fallback without mimeType
+      mediaRecorder = new MediaRecorder(stream);
+    }
     audioChunks = [];
 
     mediaRecorder.ondataavailable = (e) => {
@@ -275,12 +306,15 @@ async function startRecording() {
     };
 
     mediaRecorder.onstop = () => {
-      recordedBlob = new Blob(audioChunks, { type: "audio/webm" });
+      // Use the recorder's mimeType if available, else fall back to selection or webm
+      const blobType = (mediaRecorder && mediaRecorder.mimeType) || selectedAudioMimeType || 'audio/webm';
+      recordedBlob = new Blob(audioChunks, { type: blobType });
       const audioUrl = URL.createObjectURL(recordedBlob);
 
       // put recorded audio into guest playback element
       if (audioPlaybackGuest) {
         audioPlaybackGuest.src = audioUrl;
+        try { audioPlaybackGuest.load(); } catch (_) {}
       }
     };
 
