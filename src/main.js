@@ -59,6 +59,17 @@ const photoPreview = document.getElementById("photoPreview");
 const guestName = document.getElementById("guestName");
 const nameActions = document.getElementById("nameActions");
 
+// Final preview overlay elements
+const finalPreviewOverlay = document.getElementById('finalPreviewOverlay');
+const finalPreviewPhoto = document.getElementById('finalPreviewPhoto');
+const finalPreviewName = document.getElementById('finalPreviewName');
+const finalPreviewDate = document.getElementById('finalPreviewDate');
+const finalPreviewCanvas = document.getElementById('finalPreviewCanvas');
+const finalPreviewAudio = document.getElementById('finalPreviewAudio');
+const finalPreviewPlayBtn = document.getElementById('finalPreviewPlayBtn');
+const editEntryBtn = document.getElementById('editEntryBtn');
+const submitFinalBtn = document.getElementById('submitFinalBtn');
+
 let uiState = 'idle'; // idle | playing_greeting | recording | ready | previewing
 let currentState = "idle"; // idle | recording | stopped (local recorder state)
 let currentRecording = null; // { stream, sourceNode, analyser, vizController }
@@ -648,6 +659,7 @@ submitBtn && submitBtn.addEventListener('click', async () => {
 });
 
 restartBtn && restartBtn.addEventListener('click', () => {
+  console.log("restart button works");
   location.reload();
 });
 
@@ -686,7 +698,116 @@ saveRecordingBtn && saveRecordingBtn.addEventListener('click', async () => {
     alert('No recording to save!');
     return;
   }
-  
+
+  // Populate overlay preview (mirror preview.php look & data)
+  try { finalPreviewName.textContent = (guestName && guestName.value.trim()) || 'Guest'; } catch (_) {}
+  try {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    finalPreviewDate.textContent = `${yyyy}-${mm}-${dd}`;
+  } catch (_) {}
+  try {
+    if (capturedPhotoBlob) {
+      const url = URL.createObjectURL(capturedPhotoBlob);
+      finalPreviewPhoto.src = url;
+    } else if (photoPreview && photoPreview.src) {
+      finalPreviewPhoto.src = photoPreview.src;
+    } else {
+      finalPreviewPhoto.src = '/vite.svg';
+    }
+  } catch (_) {}
+  try {
+    const audioUrl = URL.createObjectURL(recordedBlob);
+    finalPreviewAudio.src = audioUrl;
+  } catch (_) {}
+
+  // Wire overlay play with visualizer
+  ;(function wireOverlayPlayback(){
+    let overlayCtx = null;
+    let overlayAnalyser = null;
+    let rafId = null;
+    let isPlaying = false;
+    function draw(){
+      rafId = requestAnimationFrame(draw);
+      if (!overlayAnalyser) return;
+      const bufferLength = overlayAnalyser.fftSize;
+      const dataArray = new Uint8Array(bufferLength);
+      overlayAnalyser.getByteTimeDomainData(dataArray);
+      const ctx2d = finalPreviewCanvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = finalPreviewCanvas.getBoundingClientRect();
+      finalPreviewCanvas.width = rect.width * dpr;
+      finalPreviewCanvas.height = rect.height * dpr;
+      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx2d.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx2d.fillRect(0, 0, rect.width, rect.height);
+      ctx2d.lineWidth = 2;
+      ctx2d.strokeStyle = '#FFD700';
+      ctx2d.beginPath();
+      const sliceWidth = rect.width / bufferLength;
+      let x = 0;
+      for (let i=0;i<bufferLength;i++){
+        const v = dataArray[i] / 128.0;
+        const y = (v * rect.height) / 2;
+        if (i===0) ctx2d.moveTo(x,y); else ctx2d.lineTo(x,y);
+        x += sliceWidth;
+      }
+      ctx2d.lineTo(rect.width, rect.height/2);
+      ctx2d.stroke();
+    }
+    function ensureAnalyser(){
+      if (overlayCtx) return;
+      try {
+        overlayCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = overlayCtx.createMediaElementSource(finalPreviewAudio);
+        overlayAnalyser = overlayCtx.createAnalyser();
+        overlayAnalyser.fftSize = 2048;
+        src.connect(overlayAnalyser);
+        overlayAnalyser.connect(overlayCtx.destination);
+        draw();
+      } catch (e) { /* ignore */ }
+    }
+    if (finalPreviewPlayBtn && !finalPreviewPlayBtn.__wired) {
+      finalPreviewPlayBtn.__wired = true;
+      finalPreviewPlayBtn.onclick = () => {
+        if (isPlaying){
+          finalPreviewAudio.pause();
+          finalPreviewPlayBtn.textContent = '▶️ Play';
+          finalPreviewPlayBtn.classList.remove('playing');
+          isPlaying = false;
+          if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        } else {
+          finalPreviewAudio.play().then(()=>{
+            ensureAnalyser();
+            finalPreviewPlayBtn.textContent = '⏸️ Pause';
+            finalPreviewPlayBtn.classList.add('playing');
+            isPlaying = true;
+          }).catch(()=>{});
+        }
+      };
+      finalPreviewAudio.onended = () => {
+        finalPreviewPlayBtn.textContent = '▶️ Play';
+        finalPreviewPlayBtn.classList.remove('playing');
+        isPlaying = false;
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+      };
+    }
+  })();
+
+  // Show overlay
+  if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'flex';
+});
+
+// Edit button closes overlay to make changes
+editEntryBtn && editEntryBtn.addEventListener('click', () => {
+  if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'none';
+});
+
+// Final submit inside overlay
+submitFinalBtn && submitFinalBtn.addEventListener('click', async () => {
+  if (!recordedBlob) return;
   try {
     const form = new FormData();
     form.append('guest_name', (guestName && guestName.value) || '');
@@ -695,22 +816,13 @@ saveRecordingBtn && saveRecordingBtn.addEventListener('click', async () => {
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');
     form.append('event_date', `${yyyy}-${mm}-${dd}`);
-
     const audioExt = (recordedBlob.type && recordedBlob.type.includes('mp4')) ? 'mp4' : 'webm';
     form.append('audio', recordedBlob, `message.${audioExt}`);
-
-    if (capturedPhotoBlob) {
-      form.append('photo', capturedPhotoBlob, 'selfie.png');
-    }
-
-    const res = await fetch('/save_entry.php', {
-      method: 'POST',
-      body: form
-    });
+    if (capturedPhotoBlob) { form.append('photo', capturedPhotoBlob, 'selfie.png'); }
+    const res = await fetch('/save_entry.php', { method: 'POST', body: form });
     const data = await res.json().catch(() => ({ status: 'error', message: 'Invalid server response' }));
-    
     if (data.status === 'success') {
-      // Show success message
+      if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'none';
       const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#000000;color:white;font-family:system-ui,-apple-system,sans-serif;">\
         <div style="background:rgba(255,255,255,0.05);padding:4rem 3rem;border-radius:16px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%;">\
           <h1 style="font-family:\'Sacramento\',cursive;font-size:3rem;margin:0 0 1.5rem;font-weight:400;letter-spacing:1px;">Thank You</h1>\
