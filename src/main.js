@@ -18,7 +18,7 @@ let playbackAnalyser = null;    // analyser used for playback waveform
 let cameraStream = null;
 let capturedPhotoBlob = null;
 
-const actionBtn = document.getElementById("actionBtn");
+// const actionBtn = document.getElementById("actionBtn");
 const restartBtn = document.getElementById("restartBtn");
 const submitNameBtn = document.getElementById("submitNameBtn");
 const submitSelfieBtn = document.getElementById("submitSelfieBtn");
@@ -43,10 +43,10 @@ const audioPlaybackGreetings = document.getElementById("audioPlayback-greetings"
 
 // Ensure inline playback on iOS
 if (audioPlaybackGuest) {
-  try { audioPlaybackGuest.setAttribute('playsinline', ''); } catch (_) {}
+  try { audioPlaybackGuest.setAttribute('playsinline', ''); } catch (_) { }
 }
 if (audioPlaybackGreetings) {
-  try { audioPlaybackGreetings.setAttribute('playsinline', ''); } catch (_) {}
+  try { audioPlaybackGreetings.setAttribute('playsinline', ''); } catch (_) { }
 }
 
 const canvas = document.getElementById("visualizer");   // greeting canvas
@@ -76,6 +76,420 @@ let currentRecording = null; // { stream, sourceNode, analyser, vizController }
 
 /* Map of canvas -> viz controller so we can stop specific ones */
 const visualizers = new Map();
+
+
+// Initialize audio context on first user interaction
+document.addEventListener('touchstart', initializeAudioContext, { once: true });
+document.addEventListener('click', initializeAudioContext, { once: true });
+
+
+
+// v3 flow
+
+window.addEventListener('load', () => {
+  actionBtn.addEventListener('click', () => {
+    setTimeout(() => {
+      const audio = playRandomGreeting();
+      splashScreenSection.classList.add('fade-out');
+      // Wait for the fade animation to finish before hiding it
+      setTimeout(() => {
+        bridesGreetingSection.style.display = 'flex';
+        splashScreenSection.style.display = 'none';
+        // const audio = playRandomGreeting();
+
+        audio.onended = () => {
+          // move to selfie step
+          nameSection.style.display = 'none';
+          nameActions.style.display = 'none';
+          bridesGreetingSection.style.display = 'none';
+          guestWishesSection.style.display = 'flex';
+        };
+      }, 3000); // match the transition duration in CSS
+    }, 2000);
+  });
+
+
+  // Save recording functionality
+  saveRecordingBtn && saveRecordingBtn.addEventListener('click', async () => {
+    if (!recordedBlob) {
+      alert('No recording to save!');
+      return;
+    }
+
+    // Populate overlay preview (mirror preview.php look & data)
+    try { finalPreviewName.textContent = (guestName && guestName.value.trim()) || 'Guest'; } catch (_) { }
+    try {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      finalPreviewDate.textContent = `${yyyy}-${mm}-${dd}`;
+    } catch (_) { }
+    try {
+      if (capturedPhotoBlob) {
+        const url = URL.createObjectURL(capturedPhotoBlob);
+        finalPreviewPhoto.src = url;
+      } else if (photoPreview && photoPreview.src) {
+        finalPreviewPhoto.src = photoPreview.src;
+      } else {
+        finalPreviewPhoto.src = '/vite.svg';
+      }
+    } catch (_) { }
+    try {
+      const audioUrl = URL.createObjectURL(recordedBlob);
+      finalPreviewAudio.src = audioUrl;
+    } catch (_) { }
+
+    // Wire overlay play with visualizer
+    ; (function wireOverlayPlayback() {
+      let overlayCtx = null;
+      let overlayAnalyser = null;
+      let rafId = null;
+      let isPlaying = false;
+      function draw() {
+        rafId = requestAnimationFrame(draw);
+        if (!overlayAnalyser) return;
+        const bufferLength = overlayAnalyser.fftSize;
+        const dataArray = new Uint8Array(bufferLength);
+        overlayAnalyser.getByteTimeDomainData(dataArray);
+        const ctx2d = finalPreviewCanvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = finalPreviewCanvas.getBoundingClientRect();
+        finalPreviewCanvas.width = rect.width * dpr;
+        finalPreviewCanvas.height = rect.height * dpr;
+        ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx2d.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx2d.fillRect(0, 0, rect.width, rect.height);
+        ctx2d.lineWidth = 2;
+        ctx2d.strokeStyle = '#FFD700';
+        ctx2d.beginPath();
+        const sliceWidth = rect.width / bufferLength;
+        let x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const v = dataArray[i] / 128.0;
+          const y = (v * rect.height) / 2;
+          if (i === 0) ctx2d.moveTo(x, y); else ctx2d.lineTo(x, y);
+          x += sliceWidth;
+        }
+        ctx2d.lineTo(rect.width, rect.height / 2);
+        ctx2d.stroke();
+      }
+      function ensureAnalyser() {
+        if (overlayCtx) return;
+        try {
+          overlayCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const src = overlayCtx.createMediaElementSource(finalPreviewAudio);
+          overlayAnalyser = overlayCtx.createAnalyser();
+          overlayAnalyser.fftSize = 2048;
+          src.connect(overlayAnalyser);
+          overlayAnalyser.connect(overlayCtx.destination);
+          draw();
+        } catch (e) { /* ignore */ }
+      }
+      if (finalPreviewPlayBtn && !finalPreviewPlayBtn.__wired) {
+        finalPreviewPlayBtn.__wired = true;
+        finalPreviewPlayBtn.onclick = () => {
+          if (isPlaying) {
+            finalPreviewAudio.pause();
+            finalPreviewPlayBtn.textContent = '▶️ Play';
+            finalPreviewPlayBtn.classList.remove('playing');
+            isPlaying = false;
+            if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+          } else {
+            finalPreviewAudio.play().then(() => {
+              ensureAnalyser();
+              finalPreviewPlayBtn.textContent = '⏸️ Pause';
+              finalPreviewPlayBtn.classList.add('playing');
+              isPlaying = true;
+            }).catch(() => { });
+          }
+        };
+        finalPreviewAudio.onended = () => {
+          finalPreviewPlayBtn.textContent = '▶️ Play';
+          finalPreviewPlayBtn.classList.remove('playing');
+          isPlaying = false;
+          if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        };
+      }
+    })();
+
+    // Show overlay
+    if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'flex';
+  });
+
+  // selfie section and entering name section
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ---------------- UI event wiring ---------------- */
+// actionBtn && actionBtn.addEventListener('click', async () => {
+//   const state = uiState || 'idle';
+//   splashScreenSection.classList.add("removed");
+
+//   if (state === 'idle') {
+//     actionBtn.disabled = true;
+//     const audio = playRandomGreeting();
+//     uiState = 'playing_greeting';
+
+//     // After greeting ends we show selfie UI in your earlier flow
+//     // playRandomGreeting will stop its visualizer when ended
+//     audio.onended = () => {
+//       // move to selfie step
+//       nameSection.style.display = 'none';
+//       nameActions.style.display = 'none';
+//       bridesGreetingSection.style.display = 'none';
+//       selfieSection.classList.add('active');
+//       startCamera();
+//       actionBtn.disabled = false;
+//       uiState = 'awaiting_selfie';
+//     };
+//   }
+// });
+
+takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
+  if (!camera) return;
+  const video = camera;
+  submitSelfieBtn.disabled = false;
+
+  const vw = video.videoWidth || 520;
+  const vh = video.videoHeight || 520;
+  const size = Math.min(vw, vh);
+  photoCanvas.width = size;
+  photoCanvas.height = size;
+  const pctx = photoCanvas.getContext('2d');
+  const sx = (vw - size) / 2;
+  const sy = (vh - size) / 2;
+  pctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
+  photoCanvas.toBlob((blob) => {
+    if (blob) {
+      capturedPhotoBlob = blob;
+      const url = URL.createObjectURL(blob);
+      if (photoPreview) {
+        photoPreview.src = url;
+        photoPreview.style.display = 'block';
+      }
+      if (photoCanvas) photoCanvas.style.display = 'none';
+      if (camera) camera.style.display = 'none';
+      if (retakePhotoBtn) retakePhotoBtn.disabled = false;
+      if (takePhotoBtn) takePhotoBtn.disabled = true;
+      stopCamera();
+      actionBtn.disabled = false;
+      uiState = 'awaiting_recording';
+    }
+  }, 'image/png');
+});
+
+retakePhotoBtn && retakePhotoBtn.addEventListener('click', () => {
+  if (camera) camera.style.display = 'block';
+  capturedPhotoBlob = null;
+  if (photoCanvas) photoCanvas.style.display = 'none';
+  if (photoPreview) { photoPreview.style.display = 'none'; photoPreview.removeAttribute('src'); }
+  if (retakePhotoBtn) retakePhotoBtn.disabled = true;
+  if (takePhotoBtn) takePhotoBtn.disabled = false;
+  startCamera();
+  if (submitSelfieBtn) submitSelfieBtn.disabled = true;
+  uiState = 'awaiting_selfie';
+});
+
+backBtn && backBtn.addEventListener('click', () => {
+  stopCamera();
+});
+
+submitSelfieBtn && submitSelfieBtn.addEventListener('click', async () => {
+  selfieSection.style.display = 'none';
+  nameSection.style.display = 'flex';
+  nameActions.style.display = 'flex';
+});
+
+submitNameBtn && submitNameBtn.addEventListener('click', async () => {
+  nameSection.style.display = 'none';
+  guestWishesSection.style.display = 'flex';
+  // we don't call drawWaveform here — visualizers are tied to actual analysers
+});
+
+recordBtn && recordBtn.addEventListener("click", () => {
+  if (currentState === "idle") {
+    startRecording();
+  } else if (currentState === "recording") {
+    stopRecording();
+  } else if (currentState === "stopped") {
+    previewRecording();
+  } else if (currentState === "previewing" || currentState === "playing") {
+    // if user presses while previewing, pause playback
+    if (audioPlaybackGuest && !audioPlaybackGuest.paused) {
+      audioPlaybackGuest.pause();
+      // stop playback visualizer
+      stopVisualizer(canvas2);
+      currentState = "stopped";
+      recordBtn.textContent = "▶️ Preview Again";
+      recordBtn.classList.remove("playing");
+      recordBtn.classList.add("preview");
+    }
+  }
+});
+
+submitBtn && submitBtn.addEventListener('click', async () => {
+  if (!recordedBlob) return;
+  console.log("submit");
+
+  const form = new FormData();
+  form.append('guest_name', (guestName && guestName.value) || '');
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  form.append('event_date', `${yyyy}-${mm}-${dd}`);
+
+  const audioExt = (recordedBlob.type && recordedBlob.type.includes('mp4')) ? 'mp4' : 'webm';
+  form.append('audio', recordedBlob, `message.${audioExt}`);
+
+  if (capturedPhotoBlob) {
+    form.append('photo', capturedPhotoBlob, 'selfie.png');
+  }
+
+  try {
+    const res = await fetch('/save_entry.php', {
+      method: 'POST',
+      body: form
+    });
+    const data = await res.json().catch(() => ({ status: 'error', message: 'Invalid server response' }));
+    if (data.status === 'success') {
+      try { stopCamera(); } catch (_) { }
+      try { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); } catch (_) { }
+      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#000000;color:white;font-family:system-ui,-apple-system,sans-serif;">\
+        <div style="background:rgba(255,255,255,0.05);padding:4rem 3rem;border-radius:16px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%;">\
+          <h1 style="font-family:\'Sacramento\',cursive;font-size:3rem;margin:0 0 1.5rem;font-weight:400;letter-spacing:1px;">Thank You</h1>\
+          <p style="font-size:1.1rem;margin:0 0 2rem;opacity:0.8;line-height:1.6;font-weight:300;">Your message has been successfully saved to our guestbook.</p>\
+          <div style="width:60px;height:2px;background:linear-gradient(90deg, #007AFF, #5856D6);margin:0 auto;border-radius:1px;"></div>\
+        </div>\
+      </div>';
+      document.body.innerHTML = html;
+      return;
+    } else {
+      alert('Failed to save. Please try again.');
+    }
+  } catch (e) {
+    console.error('Save error', e);
+    alert('Save error. Please check your connection.');
+  }
+});
+
+restartBtn && restartBtn.addEventListener('click', () => {
+  console.log("restart button works");
+  location.reload();
+});
+
+// Restart recording functionality
+restartRecordingBtn && restartRecordingBtn.addEventListener('click', () => {
+  // Reset state
+  currentState = "idle";
+  recordBtn.textContent = "🎤 Start";
+  recordBtn.classList.remove("preview", "recording", "playing");
+  recordBtn.classList.add("idle");
+
+  // Hide post controls
+  if (postControls) {
+    postControls.style.display = "none";
+  }
+
+  // Clear previous recording
+  recordedBlob = null;
+  audioChunks = [];
+
+  // Clear audio playback
+  if (audioPlaybackGuest) {
+    audioPlaybackGuest.src = "";
+  }
+
+  // Stop any existing visualizer
+  stopVisualizer(canvas2);
+
+  // Start new recording
+  startRecording();
+});
+
+
+
+// Edit button closes overlay to make changes
+editEntryBtn && editEntryBtn.addEventListener('click', () => {
+  if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'none';
+});
+
+// Final submit inside overlay
+submitFinalBtn && submitFinalBtn.addEventListener('click', async () => {
+  if (!recordedBlob) return;
+  try {
+    const form = new FormData();
+    form.append('guest_name', (guestName && guestName.value) || '');
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    form.append('event_date', `${yyyy}-${mm}-${dd}`);
+    const audioExt = (recordedBlob.type && recordedBlob.type.includes('mp4')) ? 'mp4' : 'webm';
+    form.append('audio', recordedBlob, `message.${audioExt}`);
+    if (capturedPhotoBlob) { form.append('photo', capturedPhotoBlob, 'selfie.png'); }
+    const res = await fetch('/save_entry.php', { method: 'POST', body: form });
+    const data = await res.json().catch(() => ({ status: 'error', message: 'Invalid server response' }));
+    if (data.status === 'success') {
+      if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'none';
+      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#000000;color:white;font-family:system-ui,-apple-system,sans-serif;">\
+        <div style="background:rgba(255,255,255,0.05);padding:4rem 3rem;border-radius:16px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%;">\
+          <h1 style="font-family:\'Sacramento\',cursive;font-size:3rem;margin:0 0 1.5rem;font-weight:400;letter-spacing:1px;">Thank You</h1>\
+          <p style="font-size:1.1rem;margin:0 0 2rem;opacity:0.8;line-height:1.6;font-weight:300;">Your message has been successfully saved to our guestbook.</p>\
+          <div style="width:60px;height:2px;background:linear-gradient(90deg, #007AFF, #5856D6);margin:0 auto;border-radius:1px;"></div>\
+        </div>\
+      </div>';
+      document.body.innerHTML = html;
+    } else {
+      alert('Failed to save. Please try again.');
+    }
+  } catch (e) {
+    console.error('Save error', e);
+    alert('Save error. Please check your connection.');
+  }
+});
+
+/* ---------------- guest audio element playback handlers (optional) -------------
+   We manage playback visualizer via previewRecording(), so no global 'play' listener is necessary.
+   If you want playback via normal controls to also show waveform, you could wire it here.
+----------------------------------------------------------------------------*/
+
+/* ---------------- guest name live display ---------------- */
+const guestNameInput = document.getElementById("guestName");
+const displayName = document.getElementById("displayName");
+
+if (guestNameInput && displayName) {
+  guestNameInput.addEventListener("input", () => {
+    displayName.textContent = guestNameInput.value.trim() || "Your Name";
+  });
+}
+
+/* ---------------- cleanup on page unload ---------------- */
+window.addEventListener('beforeunload', () => {
+  try {
+    if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
+  } catch (e) { }
+});
+
 
 /* ensure canvases have reasonable pixel size (DPR handling) */
 function fitCanvasToDisplaySize(canvas) {
@@ -325,7 +739,7 @@ async function startRecording() {
       // put recorded audio into guest playback element
       if (audioPlaybackGuest) {
         audioPlaybackGuest.src = audioUrl;
-        try { audioPlaybackGuest.load(); } catch (_) {}
+        try { audioPlaybackGuest.load(); } catch (_) { }
       }
     };
 
@@ -364,7 +778,7 @@ function stopRecording() {
   recordBtn.textContent = "▶️ Preview";
   recordBtn.classList.remove("recording");
   recordBtn.classList.add("preview");
-  
+
   // show restart and save buttons
   if (postControls) {
     postControls.style.display = "flex";
@@ -384,7 +798,7 @@ function previewRecording() {
 
   // iOS Safari requires user interaction to start audio context
   const ctx = getAudioContext();
-  
+
   // Ensure audio context is running on iOS
   if (ctx.state === 'suspended') {
     ctx.resume().then(() => {
@@ -440,7 +854,7 @@ function previewRecording() {
 
     // play with iOS compatibility
     const playPromise = audioPlaybackGuest.play();
-    
+
     if (playPromise !== undefined) {
       playPromise.then(() => {
         // Audio started successfully
@@ -500,364 +914,3 @@ function initializeAudioContext() {
     });
   }
 }
-
-// Initialize audio context on first user interaction
-document.addEventListener('touchstart', initializeAudioContext, { once: true });
-document.addEventListener('click', initializeAudioContext, { once: true });
-
-/* ---------------- UI event wiring ---------------- */
-actionBtn && actionBtn.addEventListener('click', async () => {
-  const state = uiState || 'idle';
-  splashScreenSection.classList.add("removed");
-
-  if (state === 'idle') {
-    actionBtn.disabled = true;
-    const audio = playRandomGreeting();
-    uiState = 'playing_greeting';
-
-    // After greeting ends we show selfie UI in your earlier flow
-    // playRandomGreeting will stop its visualizer when ended
-    audio.onended = () => {
-      // move to selfie step
-      nameSection.style.display = 'none';
-      nameActions.style.display = 'none';
-      bridesGreetingSection.style.display = 'none';
-      selfieSection.classList.add('active');
-      startCamera();
-      actionBtn.disabled = false;
-      uiState = 'awaiting_selfie';
-    };
-  }
-});
-
-takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
-  if (!camera) return;
-  const video = camera;
-  submitSelfieBtn.disabled = false;
-
-  const vw = video.videoWidth || 520;
-  const vh = video.videoHeight || 520;
-  const size = Math.min(vw, vh);
-  photoCanvas.width = size;
-  photoCanvas.height = size;
-  const pctx = photoCanvas.getContext('2d');
-  const sx = (vw - size) / 2;
-  const sy = (vh - size) / 2;
-  pctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
-  photoCanvas.toBlob((blob) => {
-    if (blob) {
-      capturedPhotoBlob = blob;
-      const url = URL.createObjectURL(blob);
-      if (photoPreview) {
-        photoPreview.src = url;
-        photoPreview.style.display = 'block';
-      }
-      if (photoCanvas) photoCanvas.style.display = 'none';
-      if (camera) camera.style.display = 'none';
-      if (retakePhotoBtn) retakePhotoBtn.disabled = false;
-      if (takePhotoBtn) takePhotoBtn.disabled = true;
-      stopCamera();
-      actionBtn.disabled = false;
-      uiState = 'awaiting_recording';
-    }
-  }, 'image/png');
-});
-
-retakePhotoBtn && retakePhotoBtn.addEventListener('click', () => {
-  if (camera) camera.style.display = 'block';
-  capturedPhotoBlob = null;
-  if (photoCanvas) photoCanvas.style.display = 'none';
-  if (photoPreview) { photoPreview.style.display = 'none'; photoPreview.removeAttribute('src'); }
-  if (retakePhotoBtn) retakePhotoBtn.disabled = true;
-  if (takePhotoBtn) takePhotoBtn.disabled = false;
-  startCamera();
-  if (submitSelfieBtn) submitSelfieBtn.disabled = true;
-  uiState = 'awaiting_selfie';
-});
-
-backBtn && backBtn.addEventListener('click', () => {
-  stopCamera();
-});
-
-submitSelfieBtn && submitSelfieBtn.addEventListener('click', async () => {
-  selfieSection.style.display = 'none';
-  nameSection.style.display = 'flex';
-  nameActions.style.display = 'flex';
-});
-
-submitNameBtn && submitNameBtn.addEventListener('click', async () => {
-  nameSection.style.display = 'none';
-  guestWishesSection.style.display = 'flex';
-  // we don't call drawWaveform here — visualizers are tied to actual analysers
-});
-
-recordBtn && recordBtn.addEventListener("click", () => {
-  if (currentState === "idle") {
-    startRecording();
-  } else if (currentState === "recording") {
-    stopRecording();
-  } else if (currentState === "stopped") {
-    previewRecording();
-  } else if (currentState === "previewing" || currentState === "playing") {
-    // if user presses while previewing, pause playback
-    if (audioPlaybackGuest && !audioPlaybackGuest.paused) {
-      audioPlaybackGuest.pause();
-      // stop playback visualizer
-      stopVisualizer(canvas2);
-      currentState = "stopped";
-      recordBtn.textContent = "▶️ Preview Again";
-      recordBtn.classList.remove("playing");
-      recordBtn.classList.add("preview");
-    }
-  }
-});
-
-submitBtn && submitBtn.addEventListener('click', async () => {
-  if (!recordedBlob) return;
-  console.log("submit");
-
-  const form = new FormData();
-  form.append('guest_name', (guestName && guestName.value) || '');
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const dd = String(today.getDate()).padStart(2, '0');
-  form.append('event_date', `${yyyy}-${mm}-${dd}`);
-
-  const audioExt = (recordedBlob.type && recordedBlob.type.includes('mp4')) ? 'mp4' : 'webm';
-  form.append('audio', recordedBlob, `message.${audioExt}`);
-
-  if (capturedPhotoBlob) {
-    form.append('photo', capturedPhotoBlob, 'selfie.png');
-  }
-
-  try {
-    const res = await fetch('/save_entry.php', {
-      method: 'POST',
-      body: form
-    });
-    const data = await res.json().catch(() => ({ status: 'error', message: 'Invalid server response' }));
-    if (data.status === 'success') {
-      try { stopCamera(); } catch (_) { }
-      try { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); } catch (_) { }
-      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#000000;color:white;font-family:system-ui,-apple-system,sans-serif;">\
-        <div style="background:rgba(255,255,255,0.05);padding:4rem 3rem;border-radius:16px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%;">\
-          <h1 style="font-family:\'Sacramento\',cursive;font-size:3rem;margin:0 0 1.5rem;font-weight:400;letter-spacing:1px;">Thank You</h1>\
-          <p style="font-size:1.1rem;margin:0 0 2rem;opacity:0.8;line-height:1.6;font-weight:300;">Your message has been successfully saved to our guestbook.</p>\
-          <div style="width:60px;height:2px;background:linear-gradient(90deg, #007AFF, #5856D6);margin:0 auto;border-radius:1px;"></div>\
-        </div>\
-      </div>';
-      document.body.innerHTML = html;
-      return;
-    } else {
-      alert('Failed to save. Please try again.');
-    }
-  } catch (e) {
-    console.error('Save error', e);
-    alert('Save error. Please check your connection.');
-  }
-});
-
-restartBtn && restartBtn.addEventListener('click', () => {
-  console.log("restart button works");
-  location.reload();
-});
-
-// Restart recording functionality
-restartRecordingBtn && restartRecordingBtn.addEventListener('click', () => {
-  // Reset state
-  currentState = "idle";
-  recordBtn.textContent = "🎤 Start";
-  recordBtn.classList.remove("preview", "recording", "playing");
-  recordBtn.classList.add("idle");
-  
-  // Hide post controls
-  if (postControls) {
-    postControls.style.display = "none";
-  }
-  
-  // Clear previous recording
-  recordedBlob = null;
-  audioChunks = [];
-  
-  // Clear audio playback
-  if (audioPlaybackGuest) {
-    audioPlaybackGuest.src = "";
-  }
-  
-  // Stop any existing visualizer
-  stopVisualizer(canvas2);
-  
-  // Start new recording
-  startRecording();
-});
-
-// Save recording functionality
-saveRecordingBtn && saveRecordingBtn.addEventListener('click', async () => {
-  if (!recordedBlob) {
-    alert('No recording to save!');
-    return;
-  }
-
-  // Populate overlay preview (mirror preview.php look & data)
-  try { finalPreviewName.textContent = (guestName && guestName.value.trim()) || 'Guest'; } catch (_) {}
-  try {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    finalPreviewDate.textContent = `${yyyy}-${mm}-${dd}`;
-  } catch (_) {}
-  try {
-    if (capturedPhotoBlob) {
-      const url = URL.createObjectURL(capturedPhotoBlob);
-      finalPreviewPhoto.src = url;
-    } else if (photoPreview && photoPreview.src) {
-      finalPreviewPhoto.src = photoPreview.src;
-    } else {
-      finalPreviewPhoto.src = '/vite.svg';
-    }
-  } catch (_) {}
-  try {
-    const audioUrl = URL.createObjectURL(recordedBlob);
-    finalPreviewAudio.src = audioUrl;
-  } catch (_) {}
-
-  // Wire overlay play with visualizer
-  ;(function wireOverlayPlayback(){
-    let overlayCtx = null;
-    let overlayAnalyser = null;
-    let rafId = null;
-    let isPlaying = false;
-    function draw(){
-      rafId = requestAnimationFrame(draw);
-      if (!overlayAnalyser) return;
-      const bufferLength = overlayAnalyser.fftSize;
-      const dataArray = new Uint8Array(bufferLength);
-      overlayAnalyser.getByteTimeDomainData(dataArray);
-      const ctx2d = finalPreviewCanvas.getContext('2d');
-      const dpr = window.devicePixelRatio || 1;
-      const rect = finalPreviewCanvas.getBoundingClientRect();
-      finalPreviewCanvas.width = rect.width * dpr;
-      finalPreviewCanvas.height = rect.height * dpr;
-      ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx2d.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx2d.fillRect(0, 0, rect.width, rect.height);
-      ctx2d.lineWidth = 2;
-      ctx2d.strokeStyle = '#FFD700';
-      ctx2d.beginPath();
-      const sliceWidth = rect.width / bufferLength;
-      let x = 0;
-      for (let i=0;i<bufferLength;i++){
-        const v = dataArray[i] / 128.0;
-        const y = (v * rect.height) / 2;
-        if (i===0) ctx2d.moveTo(x,y); else ctx2d.lineTo(x,y);
-        x += sliceWidth;
-      }
-      ctx2d.lineTo(rect.width, rect.height/2);
-      ctx2d.stroke();
-    }
-    function ensureAnalyser(){
-      if (overlayCtx) return;
-      try {
-        overlayCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const src = overlayCtx.createMediaElementSource(finalPreviewAudio);
-        overlayAnalyser = overlayCtx.createAnalyser();
-        overlayAnalyser.fftSize = 2048;
-        src.connect(overlayAnalyser);
-        overlayAnalyser.connect(overlayCtx.destination);
-        draw();
-      } catch (e) { /* ignore */ }
-    }
-    if (finalPreviewPlayBtn && !finalPreviewPlayBtn.__wired) {
-      finalPreviewPlayBtn.__wired = true;
-      finalPreviewPlayBtn.onclick = () => {
-        if (isPlaying){
-          finalPreviewAudio.pause();
-          finalPreviewPlayBtn.textContent = '▶️ Play';
-          finalPreviewPlayBtn.classList.remove('playing');
-          isPlaying = false;
-          if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-        } else {
-          finalPreviewAudio.play().then(()=>{
-            ensureAnalyser();
-            finalPreviewPlayBtn.textContent = '⏸️ Pause';
-            finalPreviewPlayBtn.classList.add('playing');
-            isPlaying = true;
-          }).catch(()=>{});
-        }
-      };
-      finalPreviewAudio.onended = () => {
-        finalPreviewPlayBtn.textContent = '▶️ Play';
-        finalPreviewPlayBtn.classList.remove('playing');
-        isPlaying = false;
-        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-      };
-    }
-  })();
-
-  // Show overlay
-  if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'flex';
-});
-
-// Edit button closes overlay to make changes
-editEntryBtn && editEntryBtn.addEventListener('click', () => {
-  if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'none';
-});
-
-// Final submit inside overlay
-submitFinalBtn && submitFinalBtn.addEventListener('click', async () => {
-  if (!recordedBlob) return;
-  try {
-    const form = new FormData();
-    form.append('guest_name', (guestName && guestName.value) || '');
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    form.append('event_date', `${yyyy}-${mm}-${dd}`);
-    const audioExt = (recordedBlob.type && recordedBlob.type.includes('mp4')) ? 'mp4' : 'webm';
-    form.append('audio', recordedBlob, `message.${audioExt}`);
-    if (capturedPhotoBlob) { form.append('photo', capturedPhotoBlob, 'selfie.png'); }
-    const res = await fetch('/save_entry.php', { method: 'POST', body: form });
-    const data = await res.json().catch(() => ({ status: 'error', message: 'Invalid server response' }));
-    if (data.status === 'success') {
-      if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'none';
-      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#000000;color:white;font-family:system-ui,-apple-system,sans-serif;">\
-        <div style="background:rgba(255,255,255,0.05);padding:4rem 3rem;border-radius:16px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%;">\
-          <h1 style="font-family:\'Sacramento\',cursive;font-size:3rem;margin:0 0 1.5rem;font-weight:400;letter-spacing:1px;">Thank You</h1>\
-          <p style="font-size:1.1rem;margin:0 0 2rem;opacity:0.8;line-height:1.6;font-weight:300;">Your message has been successfully saved to our guestbook.</p>\
-          <div style="width:60px;height:2px;background:linear-gradient(90deg, #007AFF, #5856D6);margin:0 auto;border-radius:1px;"></div>\
-        </div>\
-      </div>';
-      document.body.innerHTML = html;
-    } else {
-      alert('Failed to save. Please try again.');
-    }
-  } catch (e) {
-    console.error('Save error', e);
-    alert('Save error. Please check your connection.');
-  }
-});
-
-/* ---------------- guest audio element playback handlers (optional) -------------
-   We manage playback visualizer via previewRecording(), so no global 'play' listener is necessary.
-   If you want playback via normal controls to also show waveform, you could wire it here.
-----------------------------------------------------------------------------*/
-
-/* ---------------- guest name live display ---------------- */
-const guestNameInput = document.getElementById("guestName");
-const displayName = document.getElementById("displayName");
-
-if (guestNameInput && displayName) {
-  guestNameInput.addEventListener("input", () => {
-    displayName.textContent = guestNameInput.value.trim() || "Your Name";
-  });
-}
-
-/* ---------------- cleanup on page unload ---------------- */
-window.addEventListener('beforeunload', () => {
-  try {
-    if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
-  } catch (e) { }
-});
