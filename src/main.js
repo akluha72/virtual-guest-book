@@ -1,5 +1,6 @@
 import './style.css'
 import './styles/mainpage.scss'
+import './styles/splashscreen.scss'
 
 /* ---------------- globals ---------------- */
 let mediaRecorder;
@@ -212,10 +213,11 @@ window.addEventListener('load', () => {
         };
       }
     })();
-
-    // Show overlay
-    if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'flex';
   });
+
+
+  // Show overlay
+  if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'flex';
 
   // selfie section and entering name section
 });
@@ -223,46 +225,6 @@ window.addEventListener('load', () => {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* ---------------- UI event wiring ---------------- */
-// actionBtn && actionBtn.addEventListener('click', async () => {
-//   const state = uiState || 'idle';
-//   splashScreenSection.classList.add("removed");
-
-//   if (state === 'idle') {
-//     actionBtn.disabled = true;
-//     const audio = playRandomGreeting();
-//     uiState = 'playing_greeting';
-
-//     // After greeting ends we show selfie UI in your earlier flow
-//     // playRandomGreeting will stop its visualizer when ended
-//     audio.onended = () => {
-//       // move to selfie step
-//       nameSection.style.display = 'none';
-//       nameActions.style.display = 'none';
-//       bridesGreetingSection.style.display = 'none';
-//       selfieSection.classList.add('active');
-//       startCamera();
-//       actionBtn.disabled = false;
-//       uiState = 'awaiting_selfie';
-//     };
-//   }
-// });
 
 takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
   if (!camera) return;
