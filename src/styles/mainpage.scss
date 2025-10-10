@@ -4,6 +4,10 @@ body {
     background-color: black;
 }
 
+button {
+    font-family: "Reenie Beanie", cursive;
+}
+
 .content-wrapper {
     margin: 10vh auto;
 }
@@ -105,7 +109,6 @@ h1 {
         object-fit: cover;
     }
 
-    #photoPreview,
     #photoCanvas {
         display: none;
         width: 100%;
@@ -113,78 +116,23 @@ h1 {
         object-fit: cover;
     }
 
-    &.active {
+    .shutter-button-wrapper {
+        width: 70px;
+        height: 70px;
         display: flex;
-    }
+        flex-direction: column;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        border-radius: 50%;
+        border: 5px solid white;
+        position: relative;
 
-    // Selfie section button styling
-    div[style*="margin-top:0.75rem"] {
-        button {
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            font-size: 1rem;
-            font-weight: 600;
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            cursor: pointer;
-            transition: all 0.2s ease-in-out;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-            letter-spacing: 0.3px;
-            margin: 0 0.25rem;
-            backdrop-filter: blur(10px);
-
-            &:hover {
-                transform: translateY(-1px);
-                background: rgba(255, 255, 255, 0.2);
-                border-color: rgba(255, 255, 255, 0.3);
-                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            }
-
-            &:active {
-                transform: translateY(0);
-                background: rgba(255, 255, 255, 0.15);
-                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-            }
-
-            &:disabled {
-                background: rgba(142, 142, 147, 0.2);
-                color: rgba(174, 174, 178, 0.8);
-                border-color: rgba(142, 142, 147, 0.3);
-                cursor: not-allowed;
-                transform: none;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-
-                &:hover {
-                    transform: none;
-                    background: rgba(142, 142, 147, 0.2);
-                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-                }
-            }
-
-            &#takePhotoBtn {
-                background: rgba(52, 199, 89, 0.2);
-                border-color: rgba(52, 199, 89, 0.4);
-                box-shadow: 0 2px 6px rgba(52, 199, 89, 0.2);
-
-                &:hover {
-                    background: rgba(52, 199, 89, 0.3);
-                    border-color: rgba(52, 199, 89, 0.5);
-                    box-shadow: 0 4px 10px rgba(52, 199, 89, 0.3);
-                }
-            }
-
-            &#submitSelfieBtn {
-                background: rgba(255, 149, 0, 0.2);
-                border-color: rgba(255, 149, 0, 0.4);
-                box-shadow: 0 2px 6px rgba(255, 149, 0, 0.2);
-
-                &:hover {
-                    background: rgba(255, 149, 0, 0.3);
-                    border-color: rgba(255, 149, 0, 0.5);
-                    box-shadow: 0 4px 10px rgba(255, 149, 0, 0.3);
-                }
-            }
+        .shutter-button {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: white;
         }
     }
 }
@@ -219,6 +167,7 @@ h1 {
             letter-spacing: 0.3px;
             margin: 0 0.25rem;
             backdrop-filter: blur(10px);
+            font-family: "Reenie Beanie", cursive;
 
             &:hover {
                 transform: translateY(-1px);
@@ -370,6 +319,7 @@ h1 {
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             letter-spacing: 0.3px;
             backdrop-filter: blur(10px);
+            font-family: "Reenie Beanie", cursive;
 
             &:hover {
                 transform: translateY(-1px);
@@ -419,7 +369,7 @@ h1 {
     }
 }
 
-#finalPreviewOverlay {
+.finalPreviewOverlay {
     display: none;
     position: fixed;
     inset: 0;
@@ -428,6 +378,7 @@ h1 {
     align-items: center;
     justify-content: center;
     padding: 1rem;
+    flex-direction: column;
 
     .polaroid-frame {
         background: #fff;
@@ -435,7 +386,6 @@ h1 {
         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
         text-align: center;
         max-width: 380px;
-        width: 100%;
         position: relative;
         display: flex;
         flex-direction: column;
@@ -530,6 +480,16 @@ h1 {
                 font-family: "Poppins", sans-serif;
             }
         }
+    }
+
+    .final-button {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        gap: 20px;
+        width: 100%;
+        max-width: 300px;
+        margin-top: 30px;
     }
 }
 

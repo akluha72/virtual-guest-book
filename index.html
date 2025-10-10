@@ -47,26 +47,13 @@
     <h2>Take a Selfie</h2>
     <video id="camera" autoplay playsinline muted></video>
     <canvas id="photoCanvas"></canvas>
-    <img id="photoPreview">
-    <div style="margin-top:0.75rem; display:flex; gap:0.5rem; justify-content:center;">
-      <button id="retakePhotoBtn" disabled>Retake ↩️</button>
-      <button id="takePhotoBtn">Capture 📸</button>
-      <button id="submitSelfieBtn" disabled> Next ✅</button>
+    <div class="shutter-button-wrapper">
+      <button id="takePhotoBtn" class="shutter-button"></button>
     </div>
   </section>
 
-  <!-- <section class="name-section" id="nameSection">
-    <h2 id="displayName">Your Name</h2>
-    <input id="guestName" type="text" placeholder="Enter your name"
-      style="padding:0.6rem 0.9rem; border-radius:8px; border:1px solid #999; min-width:260px; font-size:16px;" />
-
-    <div id="nameActions" style="margin: 1rem 0; display:none; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
-      <button id="submitNameBtn">Next ✅</button>
-    </div>
-  </section> -->
-
   <!-- Final Preview Overlay -->
-  <div id="finalPreviewOverlay">
+  <div id="finalPreviewOverlay" class="finalPreviewOverlay">
     <div class="polaroid-frame">
       <div class="photo-area">
         <img id="finalPreviewPhoto" class="guest-photo" alt="Guest" />
@@ -76,7 +63,7 @@
         <canvas id="finalPreviewCanvas" class="audio-visualizer" width="400" height="60"></canvas>
         <audio id="finalPreviewAudio" class="audio-player" preload="metadata"></audio>
         <!-- Display name area -->
-        <h2 id="displayName" class="editable-name" tabindex="0">Your Name<span class="cursor">|</span></h2>
+        <h2 id="displayName" class="editable-name" tabindex="0">Your Name Here<span class="cursor">|</span></h2>
 
         <!-- Hidden input for actual typing -->
         <input id="hiddenNameInput" type="text" style="position:absolute; opacity:0; pointer-events:none;" />
@@ -87,60 +74,16 @@
       </div>
     </div>
 
-    <div id="nameActions" style="margin: 1rem 0; display:none; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
-      <button id="submitNameBtn">Next ✅</button>
+    <div class="final-button">
+      <button id="restartBtn">🔁 Restart</button>
+      
+      <button id="submitFinalBtn">✅ Submit</button>
     </div>
   </div>
 
 
   <!-- <audio id="ownerGreeting" src="/greeting.mp3"></audio> -->
   <script type="module" src="/src/main.js"></script>
-  <script>
-    const canvas = document.getElementById('finalPreviewCanvas');
-    const ctx = canvas.getContext('2d');
-
-    const barCount = 100;
-    const barWidth = canvas.width / barCount;
-    const centerY = canvas.height / 2;
-
-    // Generate smooth curved data
-    function generateWaveData(count) {
-      const data = [];
-      let lastValue = 0;
-
-      for (let i = 0; i < count; i++) {
-        const change = (Math.random() - 0.5) * 10;
-        lastValue = Math.max(-20, Math.min(20, lastValue + change));
-        data.push(lastValue);
-      }
-      return data;
-    }
-
-    function drawLineWave() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const data = generateWaveData(barCount);
-
-      ctx.beginPath();
-      ctx.moveTo(0, centerY);
-
-      for (let i = 0; i < data.length; i++) {
-        const x = i * barWidth;
-        const y = centerY - data[i];
-        ctx.lineTo(x, y);
-      }
-
-      // Style for line
-      ctx.strokeStyle = '#333'; // dark gray line
-      ctx.lineWidth = 2;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.stroke();
-    }
-
-    drawLineWave();
-  </script>
-
 </body>
 
 </html>

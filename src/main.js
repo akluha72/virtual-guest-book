@@ -84,8 +84,11 @@ document.addEventListener('touchstart', initializeAudioContext, { once: true });
 document.addEventListener('click', initializeAudioContext, { once: true });
 
 
-
 // v3 flow
+/*
+  STEP 1: Play greeting audio and guest record wish audio
+*/
+
 window.addEventListener('load', () => {
   actionBtn.addEventListener('click', () => {
     setTimeout(() => {
@@ -104,10 +107,6 @@ window.addEventListener('load', () => {
       }, 3000); // match the transition duration in CSS
     }, 2000);
   });
-
-  /*
-    STEP 1: Play greeting audio and guest record wish audio
-  */
 
   // Save recording functionality
   saveRecordingBtn && saveRecordingBtn.addEventListener('click', async () => {
@@ -210,7 +209,6 @@ window.addEventListener('load', () => {
   takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
     if (!camera) return;
     const video = camera;
-    submitSelfieBtn.disabled = false;
     const vw = video.videoWidth || 520;
     const vh = video.videoHeight || 520;
     const size = Math.min(vw, vh);
@@ -220,7 +218,7 @@ window.addEventListener('load', () => {
     const sx = (vw - size) / 2;
     const sy = (vh - size) / 2;
     pctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
-    finalPreviewPhoto.toBlob((blob) => {
+    photoCanvas.toBlob((blob) => {
       if (blob) {
         capturedPhotoBlob = blob;
         const url = URL.createObjectURL(blob);
@@ -235,6 +233,7 @@ window.addEventListener('load', () => {
         stopCamera();
       }
     }, 'image/png');
+    
 
     /* STEP 3: Flashing effect and polaroid appear with image taken. */
     if (finalPreviewOverlay) {
@@ -258,45 +257,43 @@ window.addEventListener('load', () => {
           finalPreviewPhoto.src = '/vite.svg';
         }
       } catch (_) { }
+
+      /* STEP 4: User entering name and submit? */
+      const displayName = document.getElementById("displayName");
+      const hiddenInput = document.getElementById("hiddenNameInput");
+
+      function focusInput() {
+        hiddenInput.focus();
+      }
+
+      // When user clicks or taps the name area
+      displayName.addEventListener("click", focusInput);
+
+      // Auto focus when page loads (optional)
+      window.addEventListener("load", () => {
+        hiddenInput.focus();
+      });
+
+      // Typing logic
+      hiddenInput.addEventListener("input", () => {
+        const text = hiddenInput.value.trim();
+        displayName.childNodes[0].textContent = text || "Your Name";
+      });
+
+      // Handle Enter key (optional — to blur input)
+      hiddenInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          hiddenInput.blur();
+        }
+      });
+
+      submitNameBtn && submitNameBtn.addEventListener('click', async () => {
+        nameSection.style.display = 'none';
+        guestWishesSection.style.display = 'flex';
+        // we don't call drawWaveform here — visualizers are tied to actual analysers
+      });
     }
   });
-
-  /* STEP 4: User entering name and submit? */
-  const displayName = document.getElementById("displayName");
-  const hiddenInput = document.getElementById("hiddenNameInput");
-
-  function focusInput() {
-    hiddenInput.focus();
-  }
-
-  // When user clicks or taps the name area
-  displayName.addEventListener("click", focusInput);
-
-  // Auto focus when page loads (optional)
-  window.addEventListener("load", () => {
-    hiddenInput.focus();
-  });
-
-  // Typing logic
-  hiddenInput.addEventListener("input", () => {
-    const text = hiddenInput.value.trim();
-    displayName.childNodes[0].textContent = text || "Your Name";
-  });
-
-  // Handle Enter key (optional — to blur input)
-  hiddenInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      hiddenInput.blur();
-    }
-  });
-
-  submitNameBtn && submitNameBtn.addEventListener('click', async () => {
-    nameSection.style.display = 'none';
-    guestWishesSection.style.display = 'flex';
-    // we don't call drawWaveform here — visualizers are tied to actual analysers
-  });
-
-
 
 
 
@@ -307,28 +304,11 @@ window.addEventListener('load', () => {
 
 
 
-
-retakePhotoBtn && retakePhotoBtn.addEventListener('click', () => {
-  if (camera) camera.style.display = 'block';
-  capturedPhotoBlob = null;
-  if (photoCanvas) photoCanvas.style.display = 'none';
-  if (photoPreview) { photoPreview.style.display = 'none'; photoPreview.removeAttribute('src'); }
-  if (retakePhotoBtn) retakePhotoBtn.disabled = true;
-  if (takePhotoBtn) takePhotoBtn.disabled = false;
-  startCamera();
-  if (submitSelfieBtn) submitSelfieBtn.disabled = true;
-  uiState = 'awaiting_selfie';
-});
 
 backBtn && backBtn.addEventListener('click', () => {
   stopCamera();
 });
 
-submitSelfieBtn && submitSelfieBtn.addEventListener('click', async () => {
-  selfieSection.style.display = 'none';
-  nameSection.style.display = 'flex';
-  nameActions.style.display = 'flex';
-});
 
 recordBtn && recordBtn.addEventListener("click", () => {
   if (currentState === "idle") {
@@ -430,8 +410,6 @@ restartRecordingBtn && restartRecordingBtn.addEventListener('click', () => {
   // Start new recording
   startRecording();
 });
-
-
 
 // Edit button closes overlay to make changes
 editEntryBtn && editEntryBtn.addEventListener('click', () => {
