@@ -28,7 +28,8 @@ h1 {
         visibility 0.6s ease;
 
     h2 {
-        font-family: "Fleur De Leah", cursive;
+        // font-family: "Fleur De Leah", cursive;
+        font-family: "Reenie Beanie", cursive;
         font-weight: 400;
         font-style: normal;
         font-size: 35px;
@@ -189,6 +190,7 @@ h1 {
 }
 
 .name-section {
+    display: none;
     height: 100dvh;
     width: 100%;
     display: none;
@@ -473,6 +475,36 @@ h1 {
                 margin: 10px 0px;
                 text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
                 transform: rotate(357deg);
+            }
+
+            .editable-name {
+                font-size: 1.8rem;
+                font-weight: 600;
+                font-family: "Reenie Beanie", cursive;
+                margin: 10px 0px;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+                transform: rotate(357deg);
+                text-align: center;
+                margin-top: 1rem;
+                position: relative;
+                display: inline-block;
+                cursor: text;
+                color: black;
+            }
+
+            .cursor {
+                display: inline-block;
+                width: 1px;
+                height: 1.2em;
+                background-color: #fff;
+                margin-left: 4px;
+                animation: blink 1s step-start infinite;
+            }
+
+            @keyframes blink {
+                50% {
+                    opacity: 0;
+                }
             }
 
             .audio-visualizer {

@@ -55,7 +55,7 @@
     </div>
   </section>
 
-  <section class="name-section" id="nameSection">
+  <!-- <section class="name-section" id="nameSection">
     <h2 id="displayName">Your Name</h2>
     <input id="guestName" type="text" placeholder="Enter your name"
       style="padding:0.6rem 0.9rem; border-radius:8px; border:1px solid #999; min-width:260px; font-size:16px;" />
@@ -63,7 +63,7 @@
     <div id="nameActions" style="margin: 1rem 0; display:none; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
       <button id="submitNameBtn">Next ✅</button>
     </div>
-  </section>
+  </section> -->
 
   <!-- Final Preview Overlay -->
   <div id="finalPreviewOverlay">
@@ -75,13 +75,20 @@
       <div class="guest-info">
         <canvas id="finalPreviewCanvas" class="audio-visualizer" width="400" height="60"></canvas>
         <audio id="finalPreviewAudio" class="audio-player" preload="metadata"></audio>
-        <h2 id="finalPreviewName" class="guest-name">- Lutfi akmal -</h2>
-      </div>
+        <!-- Display name area -->
+        <h2 id="displayName" class="editable-name" tabindex="0">Your Name<span class="cursor">|</span></h2>
 
+        <!-- Hidden input for actual typing -->
+        <input id="hiddenNameInput" type="text" style="position:absolute; opacity:0; pointer-events:none;" />
+      </div>
 
       <div class="bottom-bar">
         <span id="finalPreviewDate" class="guest-date">Oct 9, 2025</span>
       </div>
+    </div>
+
+    <div id="nameActions" style="margin: 1rem 0; display:none; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
+      <button id="submitNameBtn">Next ✅</button>
     </div>
   </div>
 

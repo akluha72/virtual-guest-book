@@ -86,7 +86,6 @@ document.addEventListener('click', initializeAudioContext, { once: true });
 
 
 // v3 flow
-
 window.addEventListener('load', () => {
   actionBtn.addEventListener('click', () => {
     setTimeout(() => {
@@ -99,9 +98,6 @@ window.addEventListener('load', () => {
         // const audio = playRandomGreeting();
 
         audio.onended = () => {
-          // move to selfie step
-          nameSection.style.display = 'none';
-          nameActions.style.display = 'none';
           bridesGreetingSection.style.display = 'none';
           guestWishesSection.style.display = 'flex';
         };
@@ -109,6 +105,9 @@ window.addEventListener('load', () => {
     }, 2000);
   });
 
+  /*
+    STEP 1: Play greeting audio and guest record wish audio
+  */
 
   // Save recording functionality
   saveRecordingBtn && saveRecordingBtn.addEventListener('click', async () => {
@@ -117,25 +116,6 @@ window.addEventListener('load', () => {
       return;
     }
 
-    // Populate overlay preview (mirror preview.php look & data)
-    try { finalPreviewName.textContent = (guestName && guestName.value.trim()) || 'Guest'; } catch (_) { }
-    try {
-      const today = new Date();
-      const yyyy = today.getFullYear();
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const dd = String(today.getDate()).padStart(2, '0');
-      finalPreviewDate.textContent = `${yyyy}-${mm}-${dd}`;
-    } catch (_) { }
-    try {
-      if (capturedPhotoBlob) {
-        const url = URL.createObjectURL(capturedPhotoBlob);
-        finalPreviewPhoto.src = url;
-      } else if (photoPreview && photoPreview.src) {
-        finalPreviewPhoto.src = photoPreview.src;
-      } else {
-        finalPreviewPhoto.src = '/vite.svg';
-      }
-    } catch (_) { }
     try {
       const audioUrl = URL.createObjectURL(recordedBlob);
       finalPreviewAudio.src = audioUrl;
@@ -213,51 +193,120 @@ window.addEventListener('load', () => {
         };
       }
     })();
+
+    // Display the camera section
+    bridesGreetingSection.style.display = 'none';
+    guestWishesSection.style.display = 'none';
+    selfieSection.style.display = "flex";
+    if (selfieSection) {
+      startCamera();
+    }
+  });
+
+  /*
+    STEP 2: Take selfie and enter guest name.
+  */
+
+  takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
+    if (!camera) return;
+    const video = camera;
+    submitSelfieBtn.disabled = false;
+    const vw = video.videoWidth || 520;
+    const vh = video.videoHeight || 520;
+    const size = Math.min(vw, vh);
+    photoCanvas.width = size;
+    photoCanvas.height = size;
+    const pctx = photoCanvas.getContext('2d');
+    const sx = (vw - size) / 2;
+    const sy = (vh - size) / 2;
+    pctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
+    finalPreviewPhoto.toBlob((blob) => {
+      if (blob) {
+        capturedPhotoBlob = blob;
+        const url = URL.createObjectURL(blob);
+        if (finalPreviewPhoto) {
+          finalPreviewPhoto.src = url;
+          // finalPreviewPhoto.style.display = 'block';
+        }
+        if (photoCanvas) photoCanvas.style.display = 'none';
+        if (camera) camera.style.display = 'none';
+        if (retakePhotoBtn) retakePhotoBtn.disabled = false;
+        if (takePhotoBtn) takePhotoBtn.disabled = true;
+        stopCamera();
+      }
+    }, 'image/png');
+
+    /* STEP 3: Flashing effect and polaroid appear with image taken. */
+    if (finalPreviewOverlay) {
+      selfieSection.style.display = "none";
+      finalPreviewOverlay.style.display = 'flex';
+      // Populate overlay preview (mirror preview.php look & data)
+      try {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        finalPreviewDate.textContent = `${yyyy}-${mm}-${dd}`;
+      } catch (_) { }
+      try {
+        if (capturedPhotoBlob) {
+          const url = URL.createObjectURL(capturedPhotoBlob);
+          finalPreviewPhoto.src = url;
+        } else if (photoPreview && photoPreview.src) {
+          finalPreviewPhoto.src = photoPreview.src;
+        } else {
+          finalPreviewPhoto.src = '/vite.svg';
+        }
+      } catch (_) { }
+    }
+  });
+
+  /* STEP 4: User entering name and submit? */
+  const displayName = document.getElementById("displayName");
+  const hiddenInput = document.getElementById("hiddenNameInput");
+
+  function focusInput() {
+    hiddenInput.focus();
+  }
+
+  // When user clicks or taps the name area
+  displayName.addEventListener("click", focusInput);
+
+  // Auto focus when page loads (optional)
+  window.addEventListener("load", () => {
+    hiddenInput.focus();
+  });
+
+  // Typing logic
+  hiddenInput.addEventListener("input", () => {
+    const text = hiddenInput.value.trim();
+    displayName.childNodes[0].textContent = text || "Your Name";
+  });
+
+  // Handle Enter key (optional — to blur input)
+  hiddenInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      hiddenInput.blur();
+    }
+  });
+
+  submitNameBtn && submitNameBtn.addEventListener('click', async () => {
+    nameSection.style.display = 'none';
+    guestWishesSection.style.display = 'flex';
+    // we don't call drawWaveform here — visualizers are tied to actual analysers
   });
 
 
-  // Show overlay
-  if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'flex';
 
-  // selfie section and entering name section
+
+
 });
 
 
 
 
 
-takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
-  if (!camera) return;
-  const video = camera;
-  submitSelfieBtn.disabled = false;
 
-  const vw = video.videoWidth || 520;
-  const vh = video.videoHeight || 520;
-  const size = Math.min(vw, vh);
-  photoCanvas.width = size;
-  photoCanvas.height = size;
-  const pctx = photoCanvas.getContext('2d');
-  const sx = (vw - size) / 2;
-  const sy = (vh - size) / 2;
-  pctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
-  photoCanvas.toBlob((blob) => {
-    if (blob) {
-      capturedPhotoBlob = blob;
-      const url = URL.createObjectURL(blob);
-      if (photoPreview) {
-        photoPreview.src = url;
-        photoPreview.style.display = 'block';
-      }
-      if (photoCanvas) photoCanvas.style.display = 'none';
-      if (camera) camera.style.display = 'none';
-      if (retakePhotoBtn) retakePhotoBtn.disabled = false;
-      if (takePhotoBtn) takePhotoBtn.disabled = true;
-      stopCamera();
-      actionBtn.disabled = false;
-      uiState = 'awaiting_recording';
-    }
-  }, 'image/png');
-});
 
 retakePhotoBtn && retakePhotoBtn.addEventListener('click', () => {
   if (camera) camera.style.display = 'block';
@@ -279,12 +328,6 @@ submitSelfieBtn && submitSelfieBtn.addEventListener('click', async () => {
   selfieSection.style.display = 'none';
   nameSection.style.display = 'flex';
   nameActions.style.display = 'flex';
-});
-
-submitNameBtn && submitNameBtn.addEventListener('click', async () => {
-  nameSection.style.display = 'none';
-  guestWishesSection.style.display = 'flex';
-  // we don't call drawWaveform here — visualizers are tied to actual analysers
 });
 
 recordBtn && recordBtn.addEventListener("click", () => {
@@ -435,15 +478,6 @@ submitFinalBtn && submitFinalBtn.addEventListener('click', async () => {
    If you want playback via normal controls to also show waveform, you could wire it here.
 ----------------------------------------------------------------------------*/
 
-/* ---------------- guest name live display ---------------- */
-const guestNameInput = document.getElementById("guestName");
-const displayName = document.getElementById("displayName");
-
-if (guestNameInput && displayName) {
-  guestNameInput.addEventListener("input", () => {
-    displayName.textContent = guestNameInput.value.trim() || "Your Name";
-  });
-}
 
 /* ---------------- cleanup on page unload ---------------- */
 window.addEventListener('beforeunload', () => {
