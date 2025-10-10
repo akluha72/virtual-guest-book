@@ -464,14 +464,19 @@ h1 {
             width: 100%;
 
             .guest-name {
-                font-family: serif, cursive;
-                font-size: 1.3rem;
+                // font-family: serif, cursive;
+                // font-family: "Homemade Apple", cursive;
+                font-family: "Reenie Beanie", cursive;
+                font-weight: bolder;
+                font-size: 1.9rem;
                 color: #333;
-                margin: 0;
+                margin: 10px 0px;
                 text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+                transform: rotate(357deg);
             }
 
             .audio-visualizer {
+                display: none;
                 width: 100%;
                 height: 60px;
                 background: #f4f4f4;
@@ -481,24 +486,20 @@ h1 {
             }
         }
 
-
         .bottom-bar {
             position: absolute;
-            bottom: 1.2rem;
-            right: 1.5rem;
+            bottom: 0.2rem;
+            right: 0.5rem;
 
             .guest-date {
                 font-size: 0.9rem;
                 color: #555;
                 opacity: 0.8;
-                font-family: 'Poppins', sans-serif;
+                font-family: "Poppins", sans-serif;
             }
         }
     }
 }
-
-
-
 
 @keyframes pulse {
     0% {

@@ -9,10 +9,10 @@
   <title>Voice Guestbook</title>
 
 
-  <!-- <link href="https://fonts.googleapis.com/css2?family=Sacramento&display=swap" rel="stylesheet"> -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fleur+De+Leah&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Homemade+Apple&family=Reenie+Beanie&display=swap"
+    rel="stylesheet">
 </head>
 
 <body>
@@ -75,7 +75,7 @@
       <div class="guest-info">
         <canvas id="finalPreviewCanvas" class="audio-visualizer" width="400" height="60"></canvas>
         <audio id="finalPreviewAudio" class="audio-player" preload="metadata"></audio>
-        <h2 id="finalPreviewName" class="guest-name">Guest Name</h2>
+        <h2 id="finalPreviewName" class="guest-name">- Lutfi akmal -</h2>
       </div>
 
 
@@ -88,30 +88,28 @@
 
   <!-- <audio id="ownerGreeting" src="/greeting.mp3"></audio> -->
   <script type="module" src="/src/main.js"></script>
-
   <script>
     const canvas = document.getElementById('finalPreviewCanvas');
     const ctx = canvas.getContext('2d');
 
-    const barCount = 80;
+    const barCount = 100;
     const barWidth = canvas.width / barCount;
     const centerY = canvas.height / 2;
 
-    // Generate smooth curved values (like a paused waveform)
+    // Generate smooth curved data
     function generateWaveData(count) {
       const data = [];
       let lastValue = 0;
 
       for (let i = 0; i < count; i++) {
-        // Random gentle step change for smoothness
         const change = (Math.random() - 0.5) * 10;
-        lastValue = Math.max(-25, Math.min(25, lastValue + change));
+        lastValue = Math.max(-20, Math.min(20, lastValue + change));
         data.push(lastValue);
       }
       return data;
     }
 
-    function drawPausedWave() {
+    function drawLineWave() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       const data = generateWaveData(barCount);
@@ -119,32 +117,21 @@
       ctx.beginPath();
       ctx.moveTo(0, centerY);
 
-      // Draw top waveform
       for (let i = 0; i < data.length; i++) {
         const x = i * barWidth;
         const y = centerY - data[i];
         ctx.lineTo(x, y);
       }
 
-      // Draw mirrored bottom waveform
-      for (let i = data.length - 1; i >= 0; i--) {
-        const x = i * barWidth;
-        const y = centerY + data[i];
-        ctx.lineTo(x, y);
-      }
-
-      ctx.closePath();
-
-      // Fill with soft dark tone
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, "#555");
-      gradient.addColorStop(1, "#888");
-
-      ctx.fillStyle = gradient;
-      ctx.fill();
+      // Style for line
+      ctx.strokeStyle = '#333'; // dark gray line
+      ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.stroke();
     }
 
-    drawPausedWave();
+    drawLineWave();
   </script>
 
 </body>
