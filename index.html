@@ -19,7 +19,6 @@
   <section class="splash-screen">
     <h2>Firdaus & Najiha</h2>
     <div class="start-button">
-      <!-- <button class="button-17" role="button" id="actionBtn"> click here to start</button> -->
       <div class="start-button-text" id="actionBtn"> Click here to start</div>
   </section>
 
@@ -44,9 +43,13 @@
 
 
   <section class="selfie-section">
-    <h2>Take a Selfie</h2>
-    <video id="camera" autoplay playsinline muted></video>
-    <canvas id="photoCanvas"></canvas>
+    <div class="camera-wrapper">
+      <video id="camera" autoplay playsinline></video>
+      <div class="camera-filter"></div>
+    </div>
+    <!-- <video id="camera" autoplay playsinline muted></video>
+    <div class="camera-filter"></div> -->
+    <canvas id="photoCanvas" style="display: none;"></canvas>
     <div class="shutter-button-wrapper">
       <button id="takePhotoBtn" class="shutter-button"></button>
     </div>
@@ -76,7 +79,7 @@
 
     <div class="final-button">
       <button id="restartBtn">🔁 Restart</button>
-      
+
       <button id="submitFinalBtn">✅ Submit</button>
     </div>
   </div>

@@ -94,28 +94,39 @@ h1 {
     background-color: black;
     width: 100%;
     height: 100dvh;
+    overflow-y: hidden;
     flex-direction: column;
     align-items: center;
     justify-content: space-around;
+    justify-content: flex-start;
+    gap: 20px;
 
     h2 {
         color: white;
     }
 
-    #camera {
+    .camera-wrapper {
+        position: relative;
         width: 100%;
-        // height: 400px;
-        height: 70vh;
-        object-fit: cover;
-    }
+        aspect-ratio: 3 / 4;
+        overflow: hidden;
 
-    #photoCanvas {
-        display: none;
-        width: 100%;
-        height: 70vh;
-        object-fit: cover;
-    }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); // mirror for selfie
+        }
 
+        .camera-filter {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            mix-blend-mode: soft-light;
+            background: linear-gradient(rgba(255, 235, 205, 0.25), rgba(0, 0, 0, 0.15)); // warm VSCO tone
+            filter: contrast(1.1) saturate(1.2);
+        }
+    }
     .shutter-button-wrapper {
         width: 70px;
         height: 70px;
@@ -385,7 +396,7 @@ h1 {
         padding: 1rem 1rem 3rem; // extra bottom space for polaroid style
         box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
         text-align: center;
-        max-width: 380px;
+        width: 80vw;
         position: relative;
         display: flex;
         flex-direction: column;
@@ -393,22 +404,18 @@ h1 {
 
         .photo-area {
             width: 100%;
-            height: 350px;
-            background: #d9d9d9; // neutral gray placeholder
-            // border-radius: 4px;
+            aspect-ratio: 1 / 1; // always square like your captured photo
+            background: #d9d9d9;
+            border: 3px solid #fff;
             display: flex;
             align-items: center;
             justify-content: center;
-            // margin-bottom: 1.5rem;
             overflow: hidden;
-            // box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
-            border: 3px solid #fff;
 
             .guest-photo {
                 width: 100%;
                 height: 100%;
                 object-fit: cover;
-                display: block;
             }
         }
 

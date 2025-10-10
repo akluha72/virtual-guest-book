@@ -50,8 +50,8 @@ if (audioPlaybackGreetings) {
   try { audioPlaybackGreetings.setAttribute('playsinline', ''); } catch (_) { }
 }
 
-const canvas = document.getElementById("visualizer");   // greeting canvas
-const canvas2 = document.getElementById("visualizer2"); // guest recording canvas
+const canvas = document.getElementById("visualizer");
+const canvas2 = document.getElementById("visualizer2");
 
 // Inline save elements
 const camera = document.getElementById("camera");
@@ -90,7 +90,10 @@ document.addEventListener('click', initializeAudioContext, { once: true });
 */
 
 window.addEventListener('load', () => {
+  let isClicked = false;
   actionBtn.addEventListener('click', () => {
+    if (isClicked) return; // ignore further clicks
+    isClicked = true;
     setTimeout(() => {
       const audio = playRandomGreeting();
       splashScreenSection.classList.add('fade-out');
@@ -106,6 +109,7 @@ window.addEventListener('load', () => {
         };
       }, 3000); // match the transition duration in CSS
     }, 2000);
+    setTimeout(() => (isClicked = false), 3000);
   });
 
   // Save recording functionality
@@ -209,15 +213,17 @@ window.addEventListener('load', () => {
   takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
     if (!camera) return;
     const video = camera;
-    const vw = video.videoWidth || 520;
-    const vh = video.videoHeight || 520;
-    const size = Math.min(vw, vh);
-    photoCanvas.width = size;
-    photoCanvas.height = size;
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+
+    photoCanvas.width = vw;
+    photoCanvas.height = vh;
     const pctx = photoCanvas.getContext('2d');
-    const sx = (vw - size) / 2;
-    const sy = (vh - size) / 2;
-    pctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
+    pctx.save();
+    pctx.scale(-1, 1);
+    pctx.drawImage(video, -vw, 0, vw, vh);
+    pctx.restore();
+    pctx.drawImage(video, 0, 0, vw, vh, 0, 0, vw, vh);
     photoCanvas.toBlob((blob) => {
       if (blob) {
         capturedPhotoBlob = blob;
@@ -233,7 +239,7 @@ window.addEventListener('load', () => {
         stopCamera();
       }
     }, 'image/png');
-    
+
 
     /* STEP 3: Flashing effect and polaroid appear with image taken. */
     if (finalPreviewOverlay) {
@@ -385,6 +391,7 @@ restartBtn && restartBtn.addEventListener('click', () => {
 // Restart recording functionality
 restartRecordingBtn && restartRecordingBtn.addEventListener('click', () => {
   // Reset state
+  drawIdleWaveform(canvas2);
   currentState = "idle";
   recordBtn.textContent = "🎤 Start";
   recordBtn.classList.remove("preview", "recording", "playing");
@@ -406,6 +413,7 @@ restartRecordingBtn && restartRecordingBtn.addEventListener('click', () => {
 
   // Stop any existing visualizer
   stopVisualizer(canvas2);
+  drawIdleWaveform(canvas2);
 
   // Start new recording
   startRecording();
@@ -555,6 +563,32 @@ function drawWaveform(analyserNode, targetCanvas) {
   return controller;
 }
 
+function drawIdleWaveform(canvas) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  fitCanvasToDisplaySize(canvas);
+
+  const dpr = window.devicePixelRatio || 1;
+  const width = canvas.width / dpr;
+  const height = canvas.height / dpr;
+
+  // background
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, width, height);
+
+  // static center line (like paused waveform)
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "gold";
+  ctx.beginPath();
+  ctx.moveTo(0, height / 2);
+  for (let x = 0; x < width; x += 10) {
+    const yOffset = Math.sin(x * 0.05) * 2; // small curve effect
+    ctx.lineTo(x, height / 2 + yOffset);
+  }
+  ctx.lineTo(width, height / 2);
+  ctx.stroke();
+}
+
 /* Stops visualizer for a specific canvas (or both if no arg) */
 function stopVisualizer(target) {
   if (target) {
@@ -658,6 +692,7 @@ function playRandomGreeting() {
 
 /* ---------------- recording lifecycle ---------------- */
 async function startRecording() {
+  drawIdleWaveform(canvas2);
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const ctx = getAudioContext();
@@ -705,6 +740,7 @@ async function startRecording() {
     };
 
     mediaRecorder.onstop = () => {
+      drawIdleWaveform(canvas2);
       // Use the recorder's mimeType if available, else fall back to selection or webm
       const blobType = (mediaRecorder && mediaRecorder.mimeType) || selectedAudioMimeType || 'audio/webm';
       recordedBlob = new Blob(audioChunks, { type: blobType });
@@ -769,6 +805,7 @@ function previewRecording() {
     recordBtn.classList.add("idle");
     return;
   }
+  drawIdleWaveform(canvas2);
 
   // iOS Safari requires user interaction to start audio context
   const ctx = getAudioContext();
@@ -852,6 +889,7 @@ function previewRecording() {
     audioPlaybackGuest.onended = () => {
       if (viz && typeof viz.stop === 'function') viz.stop();
       currentState = "stopped";
+      drawIdleWaveform(canvas2); // back to static line
       recordBtn.textContent = "▶️ Preview Again";
       recordBtn.classList.remove("playing");
       recordBtn.classList.add("preview");
