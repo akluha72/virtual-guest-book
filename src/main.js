@@ -52,6 +52,8 @@ if (audioPlaybackGreetings) {
 
 const canvas = document.getElementById("visualizer");
 const canvas2 = document.getElementById("visualizer2");
+drawIdleWaveform(canvas2);
+
 
 // Inline save elements
 const camera = document.getElementById("camera");
@@ -83,7 +85,6 @@ const visualizers = new Map();
 document.addEventListener('touchstart', initializeAudioContext, { once: true });
 document.addEventListener('click', initializeAudioContext, { once: true });
 
-
 // v3 flow
 /*
   STEP 1: Play greeting audio and guest record wish audio
@@ -102,7 +103,6 @@ window.addEventListener('load', () => {
         bridesGreetingSection.style.display = 'flex';
         splashScreenSection.style.display = 'none';
         // const audio = playRandomGreeting();
-
         audio.onended = () => {
           bridesGreetingSection.style.display = 'none';
           guestWishesSection.style.display = 'flex';
@@ -111,6 +111,7 @@ window.addEventListener('load', () => {
     }, 2000);
     setTimeout(() => (isClicked = false), 3000);
   });
+
 
   // Save recording functionality
   saveRecordingBtn && saveRecordingBtn.addEventListener('click', async () => {
@@ -300,9 +301,6 @@ window.addEventListener('load', () => {
       });
     }
   });
-
-
-
 });
 
 
@@ -391,7 +389,6 @@ restartBtn && restartBtn.addEventListener('click', () => {
 // Restart recording functionality
 restartRecordingBtn && restartRecordingBtn.addEventListener('click', () => {
   // Reset state
-  drawIdleWaveform(canvas2);
   currentState = "idle";
   recordBtn.textContent = "🎤 Start";
   recordBtn.classList.remove("preview", "recording", "playing");
@@ -413,7 +410,6 @@ restartRecordingBtn && restartRecordingBtn.addEventListener('click', () => {
 
   // Stop any existing visualizer
   stopVisualizer(canvas2);
-  drawIdleWaveform(canvas2);
 
   // Start new recording
   startRecording();
@@ -563,29 +559,41 @@ function drawWaveform(analyserNode, targetCanvas) {
   return controller;
 }
 
-function drawIdleWaveform(canvas) {
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  fitCanvasToDisplaySize(canvas);
+function drawIdleWaveform(targetCanvas) {
+  if (!targetCanvas) {
+    console.log("canvas missing");
+  }
 
+  console.log("draw idle waveform");
+  const ctx = targetCanvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
-  const width = canvas.width / dpr;
-  const height = canvas.height / dpr;
+  const width = targetCanvas.clientWidth * dpr;
+  const height = targetCanvas.clientHeight * dpr;
 
-  // background
+  // Resize canvas for sharp rendering
+  targetCanvas.width = width;
+  targetCanvas.height = height;
+  ctx.scale(dpr, dpr);
+
+  // Fill background
   ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, width, height);
+  ctx.fillRect(0, 0, targetCanvas.clientWidth, targetCanvas.clientHeight);
 
-  // static center line (like paused waveform)
+  // Create a soft, wavy idle line (like a paused waveform)
   ctx.lineWidth = 2;
   ctx.strokeStyle = "gold";
   ctx.beginPath();
-  ctx.moveTo(0, height / 2);
-  for (let x = 0; x < width; x += 10) {
-    const yOffset = Math.sin(x * 0.05) * 2; // small curve effect
-    ctx.lineTo(x, height / 2 + yOffset);
+
+  const amplitude = 8; // height of the wave
+  const frequency = 0.04; // wave density
+  const midY = targetCanvas.clientHeight / 2;
+
+  for (let x = 0; x <= targetCanvas.clientWidth; x++) {
+    const y = midY + Math.sin(x * frequency) * amplitude;
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   }
-  ctx.lineTo(width, height / 2);
+
   ctx.stroke();
 }
 
@@ -692,7 +700,6 @@ function playRandomGreeting() {
 
 /* ---------------- recording lifecycle ---------------- */
 async function startRecording() {
-  drawIdleWaveform(canvas2);
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const ctx = getAudioContext();
@@ -740,7 +747,6 @@ async function startRecording() {
     };
 
     mediaRecorder.onstop = () => {
-      drawIdleWaveform(canvas2);
       // Use the recorder's mimeType if available, else fall back to selection or webm
       const blobType = (mediaRecorder && mediaRecorder.mimeType) || selectedAudioMimeType || 'audio/webm';
       recordedBlob = new Blob(audioChunks, { type: blobType });
@@ -805,8 +811,6 @@ function previewRecording() {
     recordBtn.classList.add("idle");
     return;
   }
-  drawIdleWaveform(canvas2);
-
   // iOS Safari requires user interaction to start audio context
   const ctx = getAudioContext();
 
@@ -889,7 +893,6 @@ function previewRecording() {
     audioPlaybackGuest.onended = () => {
       if (viz && typeof viz.stop === 'function') viz.stop();
       currentState = "stopped";
-      drawIdleWaveform(canvas2); // back to static line
       recordBtn.textContent = "▶️ Preview Again";
       recordBtn.classList.remove("playing");
       recordBtn.classList.add("preview");
