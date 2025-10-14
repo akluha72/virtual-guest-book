@@ -91,31 +91,31 @@ h1 {
 
 .selfie-section {
     display: none;
-    background-color: black;
-    width: 100%;
-    height: 100dvh;
-    overflow-y: hidden;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-around;
-    justify-content: flex-start;
-    gap: 20px;
-
-    h2 {
-        color: white;
-    }
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: black;
+    z-index: 1000;
+    transform: none;
+    transform-origin: center;
 
     .camera-wrapper {
         position: relative;
         width: 100%;
-        aspect-ratio: 3 / 4;
+        height: 100%;
         overflow: hidden;
+        transform: none;
+        transform-origin: center;
 
         video {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            object-position: center;
             transform: scaleX(-1); // mirror for selfie
+            transform-origin: center;
         }
 
         .camera-filter {
@@ -126,24 +126,62 @@ h1 {
             background: linear-gradient(rgba(255, 235, 205, 0.25), rgba(0, 0, 0, 0.15)); // warm VSCO tone
             filter: contrast(1.1) saturate(1.2);
         }
-    }
-    .shutter-button-wrapper {
-        width: 70px;
-        height: 70px;
-        display: flex;
-        flex-direction: column;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-items: center;
-        border-radius: 50%;
-        border: 5px solid white;
-        position: relative;
 
-        .shutter-button {
-            width: 60px;
-            height: 60px;
+        .shutter-button-wrapper {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            flex-direction: column;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
             border-radius: 50%;
-            background: white;
+            border: 4px solid white;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+
+            &:hover {
+                transform: translateX(-50%) scale(1.05);
+                background: rgba(255, 255, 255, 0.2);
+            }
+
+            .shutter-button {
+                width: 60px;
+                height: 60px;
+                border-radius: 50%;
+                background: white;
+                border: none;
+                cursor: pointer;
+                transition: all 0.2s ease;
+
+                &:active {
+                    transform: scale(0.95);
+                }
+            }
+        }
+    }
+
+    .flash-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 20;
+        transition: opacity 0.1s ease;
+
+        &.flash {
+            opacity: 1;
         }
     }
 }
@@ -231,152 +269,299 @@ h1 {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: black;
+    background: linear-gradient(135deg, #2d1b3d, #1a0f2e, #8b0000, #4b0000);
     width: 100%;
     height: 100dvh;
+    position: relative;
 
-    h2 {
-        color: white;
-    }
-
-    #visualizer,
-    #visualizer2 {
+    .voice-recorder-container {
         width: 100%;
-        height: 120px;
-        background: #111;
-        border-radius: 8px;
-        display: block;
-        margin: 0.75rem auto;
+        max-width: 400px;
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
     }
 
-    .record-btn {
-        background: rgba(255, 255, 255, 0.1);
-        color: #fff;
-        font-size: 1.1rem;
+    .recorder-title {
+        color: white;
+        font-size: 1.5rem;
         font-weight: 600;
-        padding: 0.875rem 2rem;
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        cursor: pointer;
-        transition: all 0.2s ease-in-out;
-        max-width: 200px;
         margin: 0;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        letter-spacing: 0.5px;
-        backdrop-filter: blur(10px);
+    }
 
-        &:hover {
-            transform: translateY(-1px);
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.3);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    .recording-indicator-container {
+        position: relative;
+        width: 200px;
+        height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        // Pulsing circles behind the recording indicator
+        &::before,
+        &::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 75, 92, 0.3);
+            animation: pulseCircle 2s infinite;
         }
 
-        &:active {
-            transform: translateY(0);
-            background: rgba(255, 255, 255, 0.15);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        &::before {
+            width: 160px;
+            height: 160px;
+            animation-delay: 0s;
         }
 
-        &.idle {
-            background: rgba(0, 122, 255, 0.2);
-            border-color: rgba(0, 122, 255, 0.4);
+        &::after {
+            width: 180px;
+            height: 180px;
+            animation-delay: 1s;
         }
 
         &.recording {
-            background: rgba(255, 59, 48, 0.2);
-            border-color: rgba(255, 59, 48, 0.4);
-            box-shadow: 0 2px 8px rgba(255, 59, 48, 0.2);
-            animation: pulse 1.2s infinite;
-        }
-
-        &.stopped {
-            background: rgba(52, 199, 89, 0.2);
-            border-color: rgba(52, 199, 89, 0.4);
-            box-shadow: 0 2px 8px rgba(52, 199, 89, 0.2);
-        }
-
-        &.preview {
-            background: rgba(255, 149, 0, 0.2);
-            border-color: rgba(255, 149, 0, 0.4);
-            box-shadow: 0 2px 8px rgba(255, 149, 0, 0.2);
-        }
-
-        &.playing {
-            background: rgba(88, 86, 214, 0.2);
-            border-color: rgba(88, 86, 214, 0.4);
-            box-shadow: 0 2px 8px rgba(88, 86, 214, 0.2);
-        }
-    }
-
-    #postControls {
-        margin-top: 1.5rem;
-        display: none;
-        gap: 0.75rem;
-        justify-content: center;
-        flex-wrap: wrap;
-
-        button {
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            min-width: 120px;
-            transition: all 0.2s ease-in-out;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            letter-spacing: 0.3px;
-            backdrop-filter: blur(10px);
-            font-family: "Reenie Beanie", cursive;
-
-            &:hover {
-                transform: translateY(-1px);
-                background: rgba(255, 255, 255, 0.2);
-                border-color: rgba(255, 255, 255, 0.3);
-                box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+            &::before,
+            &::after {
+                animation-play-state: running;
             }
+        }
 
-            &:active {
-                transform: translateY(0);
-                background: rgba(255, 255, 255, 0.15);
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            }
-
-            &#restartRecordingBtn {
-                background: rgba(255, 59, 48, 0.2);
-                color: #fff;
-                border-color: rgba(255, 59, 48, 0.4);
-                box-shadow: 0 2px 6px rgba(255, 59, 48, 0.2);
-
-                &:hover {
-                    background: rgba(255, 59, 48, 0.3);
-                    border-color: rgba(255, 59, 48, 0.5);
-                    box-shadow: 0 3px 8px rgba(255, 59, 48, 0.3);
-                }
-            }
-
-            &#saveRecordingBtn {
-                background: rgba(52, 199, 89, 0.2);
-                color: #fff;
-                border-color: rgba(52, 199, 89, 0.4);
-                box-shadow: 0 2px 6px rgba(52, 199, 89, 0.2);
-
-                &:hover {
-                    background: rgba(52, 199, 89, 0.3);
-                    border-color: rgba(52, 199, 89, 0.5);
-                    box-shadow: 0 3px 8px rgba(52, 199, 89, 0.3);
-                }
+        &:not(.recording) {
+            &::before,
+            &::after {
+                animation-play-state: paused;
+                opacity: 0;
             }
         }
     }
 
-    audio {
-        display: none;
-        margin-top: 1rem;
+    .waveform-container {
         width: 100%;
+        height: 80px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 12px;
+        padding: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .waveform-canvas {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        border-radius: 8px;
+    }
+
+    .recording-indicator {
+        position: relative;
+        z-index: 3;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: #ff4b5c;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 20px rgba(255, 75, 92, 0.6);
+        transition: all 0.3s ease;
+        cursor: pointer;
+
+        &.recording {
+            animation: pulseMic 1.5s infinite;
+        }
+
+        .microphone-icon {
+            position: relative;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            .mic-circle {
+                width: 30px;
+                height: 30px;
+                border-radius: 50%;
+                background: white;
+                position: relative;
+
+                &::before {
+                    content: '';
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    background: #ff4b5c;
+                }
+
+                &::after {
+                    content: '';
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    background: white;
+                }
+            }
+        }
+    }
+
+    .recording-timer {
+        color: white;
+        font-size: 1.5rem;
+        font-weight: 600;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 2px;
+    }
+
+
+    .recording-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        width: 100%;
+        align-items: center;
+    }
+
+    .record-btn {
+        background: linear-gradient(135deg, #ff6b9d, #ff4757);
+        color: white;
+        font-size: 1.1rem;
+        font-weight: 600;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
+
+        &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
+        }
+
+        &.idle {
+            background: linear-gradient(135deg, #ff6b9d, #ff4757);
+        }
+
+        &.recording {
+            background: linear-gradient(135deg, #ff4757, #ff3742);
+        }
+    }
+
+    .pause-btn {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2ed573, #1dd1a1);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 15px rgba(46, 213, 115, 0.3);
+        transition: all 0.3s ease;
+
+        &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(46, 213, 115, 0.4);
+        }
+
+        .pause-icon {
+            font-size: 1.5rem;
+            color: white;
+        }
+    }
+
+    .stop-btn {
+        background: linear-gradient(135deg, #ff6b9d, #ff4757);
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
+
+        &:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
+        }
+    }
+
+    .post-controls {
+        display: flex;
+        gap: 1rem;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .restart-btn, .save-btn {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-size: 1rem;
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+
+        &:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+    }
+
+    .save-btn {
+        background: linear-gradient(135deg, #2ed573, #1dd1a1);
+        border: none;
+        box-shadow: 0 4px 15px rgba(46, 213, 115, 0.3);
+
+        &:hover {
+            box-shadow: 0 6px 20px rgba(46, 213, 115, 0.4);
+        }
+    }
+
+    @keyframes pulseCircle {
+        0% {
+            transform: scale(0.8);
+            opacity: 0.8;
+        }
+        50% {
+            transform: scale(1.2);
+            opacity: 0.4;
+        }
+        100% {
+            transform: scale(1.5);
+            opacity: 0;
+        }
+    }
+
+    @keyframes pulseMic {
+        0% {
+            transform: scale(1);
+            box-shadow: 0 0 20px rgba(255, 75, 92, 0.6);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255, 75, 92, 0.8);
+        }
+        100% {
+            transform: scale(1);
+            box-shadow: 0 0 20px rgba(255, 75, 92, 0.6);
+        }
     }
 }
 
@@ -485,6 +670,27 @@ h1 {
                 color: #555;
                 opacity: 0.8;
                 font-family: "Poppins", sans-serif;
+            }
+        }
+    }
+
+    .retake-photo-section {
+        margin-top: 20px;
+        margin-bottom: 10px;
+        
+        .retake-photo-text {
+            color: #ff6b6b;
+            font-size: 1.1rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: underline;
+            transition: all 0.3s ease;
+            font-family: "Poppins", sans-serif;
+            
+            &:hover {
+                color: #ff5252;
+                text-decoration: none;
+                transform: scale(1.05);
             }
         }
     }

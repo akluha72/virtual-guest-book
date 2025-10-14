@@ -52,7 +52,19 @@ if (audioPlaybackGreetings) {
 
 const canvas = document.getElementById("visualizer");
 const canvas2 = document.getElementById("visualizer2");
-drawIdleWaveform(canvas2);
+
+// New voice recorder elements
+const recordingIndicator = document.getElementById("recordingIndicator");
+const recordingTimer = document.getElementById("recordingTimer");
+
+// Wait for DOM to be ready before drawing idle waveform
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    drawIdleWaveform(canvas2);
+  });
+} else {
+  drawIdleWaveform(canvas2);
+}
 
 
 // Inline save elements
@@ -69,6 +81,7 @@ const finalPreviewName = document.getElementById('finalPreviewName');
 const finalPreviewDate = document.getElementById('finalPreviewDate');
 const finalPreviewCanvas = document.getElementById('finalPreviewCanvas');
 const finalPreviewAudio = document.getElementById('finalPreviewAudio');
+const retakePhotoText = document.getElementById('retakePhotoText');
 const finalPreviewPlayBtn = document.getElementById('finalPreviewPlayBtn');
 const editEntryBtn = document.getElementById('editEntryBtn');
 const submitFinalBtn = document.getElementById('submitFinalBtn');
@@ -76,9 +89,104 @@ const submitFinalBtn = document.getElementById('submitFinalBtn');
 let uiState = 'idle'; // idle | playing_greeting | recording | ready | previewing
 let currentState = "idle"; // idle | recording | stopped (local recorder state)
 let currentRecording = null; // { stream, sourceNode, analyser, vizController }
+let recordingStartTime = null;
+let recordingTimerInterval = null;
+let isPaused = false;
 
 /* Map of canvas -> viz controller so we can stop specific ones */
 const visualizers = new Map();
+
+/* ---------------- timer functions ---------------- */
+function startRecordingTimer() {
+  recordingStartTime = Date.now();
+  recordingTimerInterval = setInterval(updateTimer, 100);
+}
+
+function updateTimer() {
+  if (!recordingStartTime) return;
+  
+  const elapsed = Date.now() - recordingStartTime;
+  const seconds = Math.floor(elapsed / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  
+  const displaySeconds = (seconds % 60).toString().padStart(2, '0');
+  const displayMinutes = (minutes % 60).toString().padStart(2, '0');
+  const displayHours = hours.toString().padStart(2, '0');
+  
+  if (recordingTimer) {
+    recordingTimer.textContent = `${displayHours}:${displayMinutes}:${displaySeconds}`;
+  }
+}
+
+function stopRecordingTimer() {
+  if (recordingTimerInterval) {
+    clearInterval(recordingTimerInterval);
+    recordingTimerInterval = null;
+  }
+  recordingStartTime = null;
+  if (recordingTimer) {
+    recordingTimer.textContent = "00:00:00";
+  }
+}
+
+function startPreviewTimer() {
+  recordingStartTime = Date.now();
+  recordingTimerInterval = setInterval(updateTimer, 100);
+}
+
+function updateRecordingUI(state) {
+  if (state === "recording") {
+    // Show recording state
+    if (recordingIndicator) {
+      recordingIndicator.classList.add("recording");
+    }
+    if (recordingIndicator && recordingIndicator.parentElement) {
+      recordingIndicator.parentElement.classList.add("recording");
+    }
+    if (recordBtn) {
+      recordBtn.textContent = "⏹ Stop Recording";
+      recordBtn.classList.remove("idle", "preview", "playing");
+      recordBtn.classList.add("recording");
+    }
+  } else if (state === "idle") {
+    // Show idle state
+    if (recordingIndicator) {
+      recordingIndicator.classList.remove("recording");
+    }
+    if (recordingIndicator && recordingIndicator.parentElement) {
+      recordingIndicator.parentElement.classList.remove("recording");
+    }
+    if (recordBtn) {
+      recordBtn.textContent = "🎤 Start Recording";
+      recordBtn.classList.remove("recording", "preview", "playing");
+      recordBtn.classList.add("idle");
+    }
+  } else if (state === "stopped") {
+    // Show stopped state (ready to preview)
+    if (recordingIndicator) {
+      recordingIndicator.classList.remove("recording");
+    }
+    if (recordingIndicator && recordingIndicator.parentElement) {
+      recordingIndicator.parentElement.classList.remove("recording");
+    }
+    if (recordBtn) {
+      recordBtn.textContent = "▶️ Preview Recording";
+      recordBtn.classList.remove("recording", "idle", "playing");
+      recordBtn.classList.add("preview");
+    }
+  } else if (state === "previewing" || state === "playing") {
+    // Show preview state
+    if (recordingIndicator && recordingIndicator.parentElement) {
+      recordingIndicator.parentElement.classList.add("recording"); // Show pulsing during preview
+    }
+    if (recordBtn) {
+      recordBtn.textContent = "⏸️ Stop Preview";
+      recordBtn.classList.remove("recording", "idle", "preview");
+      recordBtn.classList.add("playing");
+    }
+  }
+}
 
 
 // Initialize audio context on first user interaction
@@ -91,6 +199,9 @@ document.addEventListener('click', initializeAudioContext, { once: true });
 */
 
 window.addEventListener('load', () => {
+  // Ensure idle waveform is drawn when page loads
+  drawIdleWaveform(canvas2);
+  
   let isClicked = false;
   actionBtn.addEventListener('click', () => {
     if (isClicked) return; // ignore further clicks
@@ -143,8 +254,8 @@ window.addEventListener('load', () => {
         finalPreviewCanvas.width = rect.width * dpr;
         finalPreviewCanvas.height = rect.height * dpr;
         ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx2d.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx2d.fillRect(0, 0, rect.width, rect.height);
+        // Clear canvas (transparent background)
+        ctx2d.clearRect(0, 0, rect.width, rect.height);
         ctx2d.lineWidth = 2;
         ctx2d.strokeStyle = '#FFD700';
         ctx2d.beginPath();
@@ -217,6 +328,15 @@ window.addEventListener('load', () => {
     const vw = video.videoWidth || 640;
     const vh = video.videoHeight || 480;
 
+    // Trigger flash effect
+    const flashOverlay = document.getElementById('flashOverlay');
+    if (flashOverlay) {
+      flashOverlay.classList.add('flash');
+      setTimeout(() => {
+        flashOverlay.classList.remove('flash');
+      }, 150);
+    }
+
     photoCanvas.width = vw;
     photoCanvas.height = vh;
     const pctx = photoCanvas.getContext('2d');
@@ -244,8 +364,19 @@ window.addEventListener('load', () => {
 
     /* STEP 3: Flashing effect and polaroid appear with image taken. */
     if (finalPreviewOverlay) {
-      selfieSection.style.display = "none";
-      finalPreviewOverlay.style.display = 'flex';
+      // Add fade-out transition
+      selfieSection.style.transition = 'opacity 0.5s ease-out';
+      selfieSection.style.opacity = '0';
+      
+      setTimeout(() => {
+        selfieSection.style.display = "none";
+        finalPreviewOverlay.style.display = 'flex';
+        finalPreviewOverlay.style.opacity = '0';
+        finalPreviewOverlay.style.transition = 'opacity 0.5s ease-in';
+        setTimeout(() => {
+          finalPreviewOverlay.style.opacity = '1';
+        }, 50);
+      }, 500);
       // Populate overlay preview (mirror preview.php look & data)
       try {
         const today = new Date();
@@ -303,16 +434,9 @@ window.addEventListener('load', () => {
   });
 });
 
-
-
-
-
-
-
 backBtn && backBtn.addEventListener('click', () => {
   stopCamera();
 });
-
 
 recordBtn && recordBtn.addEventListener("click", () => {
   if (currentState === "idle") {
@@ -322,18 +446,17 @@ recordBtn && recordBtn.addEventListener("click", () => {
   } else if (currentState === "stopped") {
     previewRecording();
   } else if (currentState === "previewing" || currentState === "playing") {
-    // if user presses while previewing, pause playback
+    // Stop preview and return to stopped state
     if (audioPlaybackGuest && !audioPlaybackGuest.paused) {
       audioPlaybackGuest.pause();
-      // stop playback visualizer
-      stopVisualizer(canvas2);
-      currentState = "stopped";
-      recordBtn.textContent = "▶️ Preview Again";
-      recordBtn.classList.remove("playing");
-      recordBtn.classList.add("preview");
     }
+    stopVisualizer(canvas2);
+    stopRecordingTimer();
+    currentState = "stopped";
+    updateRecordingUI("stopped");
   }
 });
+
 
 submitBtn && submitBtn.addEventListener('click', async () => {
   if (!recordedBlob) return;
@@ -390,9 +513,8 @@ restartBtn && restartBtn.addEventListener('click', () => {
 restartRecordingBtn && restartRecordingBtn.addEventListener('click', () => {
   // Reset state
   currentState = "idle";
-  recordBtn.textContent = "🎤 Start";
-  recordBtn.classList.remove("preview", "recording", "playing");
-  recordBtn.classList.add("idle");
+  stopRecordingTimer();
+  updateRecordingUI("idle");
 
   // Hide post controls
   if (postControls) {
@@ -418,6 +540,32 @@ restartRecordingBtn && restartRecordingBtn.addEventListener('click', () => {
 // Edit button closes overlay to make changes
 editEntryBtn && editEntryBtn.addEventListener('click', () => {
   if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'none';
+});
+
+// Retake photo functionality
+retakePhotoText && retakePhotoText.addEventListener('click', () => {
+  if (finalPreviewOverlay) {
+    finalPreviewOverlay.style.display = 'none';
+  }
+  
+  // Reset photo capture state
+  if (photoCanvas) photoCanvas.style.display = 'none';
+  if (camera) camera.style.display = 'block'; // Make sure camera is visible
+  if (takePhotoBtn) takePhotoBtn.disabled = false;
+  if (retakePhotoBtn) retakePhotoBtn.disabled = true;
+  
+  // Clear captured photo
+  capturedPhotoBlob = null;
+  
+  // Show camera section again
+  if (selfieSection) {
+    selfieSection.style.display = 'flex';
+    selfieSection.style.opacity = '1';
+    selfieSection.style.transition = 'opacity 0.5s ease-in';
+  }
+  
+  // Restart camera
+  startCamera();
 });
 
 // Final submit inside overlay
@@ -522,9 +670,8 @@ function drawWaveform(analyserNode, targetCanvas) {
 
     analyserNode.getByteTimeDomainData(dataArray);
 
-    // background
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, width, height);
+    // Clear canvas (transparent background)
+    ctx.clearRect(0, 0, width, height);
 
     ctx.lineWidth = 2;
     ctx.strokeStyle = "gold";
@@ -559,42 +706,42 @@ function drawWaveform(analyserNode, targetCanvas) {
   return controller;
 }
 
+
 function drawIdleWaveform(targetCanvas) {
   if (!targetCanvas) {
     console.log("canvas missing");
+    return;
   }
 
-  console.log("draw idle waveform");
+  console.log("draw idle waveform for canvas:", targetCanvas.id);
   const ctx = targetCanvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
   const width = targetCanvas.clientWidth * dpr;
   const height = targetCanvas.clientHeight * dpr;
+
+  console.log("Canvas dimensions:", { width, height, clientWidth: targetCanvas.clientWidth, clientHeight: targetCanvas.clientHeight });
 
   // Resize canvas for sharp rendering
   targetCanvas.width = width;
   targetCanvas.height = height;
   ctx.scale(dpr, dpr);
 
-  // Fill background
-  ctx.fillStyle = "#000";
-  ctx.fillRect(0, 0, targetCanvas.clientWidth, targetCanvas.clientHeight);
+  // Clear canvas (transparent background)
+  ctx.clearRect(0, 0, targetCanvas.clientWidth, targetCanvas.clientHeight);
 
-  // Create a soft, wavy idle line (like a paused waveform)
+  // Create a straight yellow line in the center
   ctx.lineWidth = 2;
   ctx.strokeStyle = "gold";
   ctx.beginPath();
 
-  const amplitude = 8; // height of the wave
-  const frequency = 0.04; // wave density
   const midY = targetCanvas.clientHeight / 2;
 
-  for (let x = 0; x <= targetCanvas.clientWidth; x++) {
-    const y = midY + Math.sin(x * frequency) * amplitude;
-    if (x === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
+  // Draw straight line from left to right
+  ctx.moveTo(0, midY);
+  ctx.lineTo(targetCanvas.clientWidth, midY);
 
   ctx.stroke();
+  console.log("Idle line drawn at y:", midY);
 }
 
 /* Stops visualizer for a specific canvas (or both if no arg) */
@@ -602,6 +749,10 @@ function stopVisualizer(target) {
   if (target) {
     const v = visualizers.get(target);
     if (v && typeof v.stop === 'function') v.stop();
+    // Restore idle line for visualizer2 when stopping
+    if (target === canvas2) {
+      drawIdleWaveform(canvas2);
+    }
     return;
   }
   // stop both if present
@@ -610,6 +761,7 @@ function stopVisualizer(target) {
     try { controller.stop(); } catch (e) { /* ignore */ }
   }
 }
+
 
 /* ---------------- greetings (random) ---------------- */
 const greetings = [
@@ -762,9 +914,8 @@ async function startRecording() {
     mediaRecorder.start();
 
     currentState = "recording";
-    recordBtn.textContent = "⏹ Stop";
-    recordBtn.classList.remove("idle");
-    recordBtn.classList.add("recording");
+    startRecordingTimer();
+    updateRecordingUI("recording");
   } catch (err) {
     console.error("Mic error:", err);
   }
@@ -791,9 +942,8 @@ function stopRecording() {
 
   // set state to stopped (ready to preview)
   currentState = "stopped";
-  recordBtn.textContent = "▶️ Preview";
-  recordBtn.classList.remove("recording");
-  recordBtn.classList.add("preview");
+  stopRecordingTimer();
+  updateRecordingUI("stopped");
 
   // show restart and save buttons
   if (postControls) {
@@ -874,28 +1024,26 @@ function previewRecording() {
       playPromise.then(() => {
         // Audio started successfully
         currentState = "previewing";
-        recordBtn.textContent = "⏸️ Playing";
-        recordBtn.classList.remove("preview");
-        recordBtn.classList.add("playing");
+        updateRecordingUI("previewing");
+        
+        // Start timer for preview
+        startPreviewTimer();
       }).catch(err => {
         console.error('Playback failed', err);
         // stop visualizer if play fails
         if (viz && typeof viz.stop === 'function') viz.stop();
         // Reset button state
         currentState = "stopped";
-        recordBtn.textContent = "▶️ Preview";
-        recordBtn.classList.remove("playing");
-        recordBtn.classList.add("preview");
+        updateRecordingUI("stopped");
       });
     }
 
     // when finished, stop visualizer and show preview again
     audioPlaybackGuest.onended = () => {
       if (viz && typeof viz.stop === 'function') viz.stop();
+      stopRecordingTimer();
       currentState = "stopped";
-      recordBtn.textContent = "▶️ Preview Again";
-      recordBtn.classList.remove("playing");
-      recordBtn.classList.add("preview");
+      updateRecordingUI("stopped");
     };
   }
 }
@@ -903,8 +1051,16 @@ function previewRecording() {
 /* ---------------- camera / selfie helpers ---------------- */
 async function startCamera() {
   try {
+    // Stop any existing stream first
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+    }
+    
     cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    if (camera) camera.srcObject = cameraStream;
+    if (camera) {
+      camera.srcObject = cameraStream;
+      camera.style.display = 'block'; // Ensure camera is visible
+    }
   } catch (e) {
     console.error('Failed to start camera', e);
   }

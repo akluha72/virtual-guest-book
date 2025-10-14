@@ -30,14 +30,38 @@
   </section>
 
   <section class="guest-wishes-section">
-    <h2>What you got to say?</h2>
-    <canvas id="visualizer2"
-      style="width:100%; height:120px; background: black; border-radius:8px; display:block; margin: 0.75rem auto;"></canvas>
-    <button id="recordBtn" class="record-btn idle">🎤 Start</button>
-    <div id="postControls" style="display:none;">
-      <button id="restartRecordingBtn">🔄 Restart</button>
-      <button id="saveRecordingBtn">Next ✅</button>
+    <div class="voice-recorder-container">
+      <h2 class="recorder-title">Voice Recorder</h2>
+      
+      <!-- Recording indicator -->
+      <div class="recording-indicator-container">
+        <div class="recording-indicator" id="recordingIndicator">
+          <div class="microphone-icon">
+            <div class="mic-circle"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Recording timer -->
+      <div class="recording-timer" id="recordingTimer">00:00:00</div>
+      
+      <!-- Audio waveform visualizer -->
+      <div class="waveform-container">
+        <canvas id="visualizer2" class="waveform-canvas"></canvas>
+      </div>
+      
+      <!-- Control buttons -->
+      <div class="recording-controls">
+        <button id="recordBtn" class="record-btn idle">🎤 Start Recording</button>
+      </div>
+      
+      <!-- Post-recording controls -->
+      <div id="postControls" class="post-controls" style="display:none;">
+        <button id="restartRecordingBtn" class="restart-btn">🔄 Restart</button>
+        <button id="saveRecordingBtn" class="save-btn">Next ✅</button>
+      </div>
     </div>
+    
     <audio id="audioPlayback" controls style="display:none;" preload="auto" playsinline webkit-playsinline></audio>
   </section>
 
@@ -46,13 +70,12 @@
     <div class="camera-wrapper">
       <video id="camera" autoplay playsinline></video>
       <div class="camera-filter"></div>
+      <div class="shutter-button-wrapper">
+        <button id="takePhotoBtn" class="shutter-button"></button>
+      </div>
     </div>
-    <!-- <video id="camera" autoplay playsinline muted></video>
-    <div class="camera-filter"></div> -->
     <canvas id="photoCanvas" style="display: none;"></canvas>
-    <div class="shutter-button-wrapper">
-      <button id="takePhotoBtn" class="shutter-button"></button>
-    </div>
+    <div id="flashOverlay" class="flash-overlay"></div>
   </section>
 
   <!-- Final Preview Overlay -->
@@ -77,6 +100,10 @@
       </div>
     </div>
 
+    <div class="retake-photo-section">
+      <span id="retakePhotoText" class="retake-photo-text">Retake Photo</span>
+    </div>
+
     <div class="final-button">
       <button id="restartBtn">🔁 Restart</button>
 
@@ -87,6 +114,29 @@
 
   <!-- <audio id="ownerGreeting" src="/greeting.mp3"></audio> -->
   <script type="module" src="/src/main.js"></script>
+
+  <script>
+    // Get the canvas element
+    const canvas = document.getElementById("visualizer");
+    const ctx = canvas.getContext("2d");
+
+    // Match canvas size to its displayed size (to avoid blur)
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+    ctx.scale(dpr, dpr);
+
+    // Set line style
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+
+    // Draw a horizontal line in the center
+    const midY = canvas.clientHeight / 2;
+    ctx.beginPath();
+    ctx.moveTo(0, midY);
+    ctx.lineTo(canvas.clientWidth, midY);
+    ctx.stroke();
+  </script>
 </body>
 
 </html>
