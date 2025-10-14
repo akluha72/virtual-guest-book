@@ -86,6 +86,13 @@ const finalPreviewPlayBtn = document.getElementById('finalPreviewPlayBtn');
 const editEntryBtn = document.getElementById('editEntryBtn');
 const submitFinalBtn = document.getElementById('submitFinalBtn');
 
+// Gallery elements
+const gallerySection = document.getElementById('gallerySection');
+const polaroidGrid = document.getElementById('polaroidGrid');
+const galleryCount = document.getElementById('galleryCount');
+const backToGuestbookBtn = document.getElementById('backToGuestbookBtn');
+const shareAgainBtn = document.getElementById('shareAgainBtn');
+
 let uiState = 'idle'; // idle | playing_greeting | recording | ready | previewing
 let currentState = "idle"; // idle | recording | stopped (local recorder state)
 let currentRecording = null; // { stream, sourceNode, analyser, vizController }
@@ -586,14 +593,8 @@ submitFinalBtn && submitFinalBtn.addEventListener('click', async () => {
     const data = await res.json().catch(() => ({ status: 'error', message: 'Invalid server response' }));
     if (data.status === 'success') {
       if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'none';
-      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#000000;color:white;font-family:system-ui,-apple-system,sans-serif;">\
-        <div style="background:rgba(255,255,255,0.05);padding:4rem 3rem;border-radius:16px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%;">\
-          <h1 style="font-family:\'Sacramento\',cursive;font-size:3rem;margin:0 0 1.5rem;font-weight:400;letter-spacing:1px;">Thank You</h1>\
-          <p style="font-size:1.1rem;margin:0 0 2rem;opacity:0.8;line-height:1.6;font-weight:300;">Your message has been successfully saved to our guestbook.</p>\
-          <div style="width:60px;height:2px;background:linear-gradient(90deg, #007AFF, #5856D6);margin:0 auto;border-radius:1px;"></div>\
-        </div>\
-      </div>';
-      document.body.innerHTML = html;
+      // Show gallery instead of thank you page
+      await showGallery();
     } else {
       alert('Failed to save. Please try again.');
     }
@@ -1047,6 +1048,96 @@ function previewRecording() {
     };
   }
 }
+
+/* ---------------- gallery functions ---------------- */
+async function showGallery() {
+  if (!gallerySection) return;
+  
+  try {
+    // Show gallery section
+    gallerySection.style.display = 'flex';
+    gallerySection.style.opacity = '0';
+    gallerySection.style.transition = 'opacity 0.5s ease-in';
+    
+    // Load gallery data
+    await loadGalleryData();
+    
+    // Fade in
+    setTimeout(() => {
+      gallerySection.style.opacity = '1';
+    }, 50);
+    
+  } catch (error) {
+    console.error('Error showing gallery:', error);
+  }
+}
+
+async function loadGalleryData() {
+  try {
+    const response = await fetch('/get_gallery.php');
+    const data = await response.json();
+    
+    if (data.status === 'success') {
+      renderGallery(data.entries);
+      if (galleryCount) {
+        galleryCount.textContent = data.count;
+      }
+    } else {
+      console.error('Failed to load gallery:', data.message);
+    }
+  } catch (error) {
+    console.error('Error loading gallery data:', error);
+  }
+}
+
+function renderGallery(entries) {
+  if (!polaroidGrid) return;
+  
+  polaroidGrid.innerHTML = '';
+  
+  entries.forEach(entry => {
+    const polaroidItem = document.createElement('div');
+    polaroidItem.className = 'polaroid-item';
+    
+    // Check if photo exists, otherwise show placeholder
+    const photoSrc = entry.photo && entry.photo.trim() !== '' ? entry.photo : '';
+    const photoElement = photoSrc ? 
+      `<img class="polaroid-photo" src="${photoSrc}" alt="${entry.guest_name}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />` :
+      '';
+    
+    const placeholderElement = photoSrc ? 
+      `<div class="polaroid-photo" style="display:none; background:#e0e0e0; align-items:center; justify-content:center; color:#999; font-size:0.9rem;">No Image</div>` :
+      `<div class="polaroid-photo" style="background:#e0e0e0; display:flex; align-items:center; justify-content:center; color:#999; font-size:0.9rem;">No Image</div>`;
+    
+    polaroidItem.innerHTML = `
+      ${photoElement}
+      ${placeholderElement}
+      <div class="polaroid-info">
+        <div class="guest-name">${entry.guest_name || 'Guest'}</div>
+        <div class="guest-date">${entry.event_date}</div>
+      </div>
+    `;
+    
+    polaroidGrid.appendChild(polaroidItem);
+  });
+}
+
+// Gallery event listeners
+backToGuestbookBtn && backToGuestbookBtn.addEventListener('click', () => {
+  if (gallerySection) {
+    gallerySection.style.display = 'none';
+  }
+  // Reset to beginning
+  location.reload();
+});
+
+shareAgainBtn && shareAgainBtn.addEventListener('click', () => {
+  if (gallerySection) {
+    gallerySection.style.display = 'none';
+  }
+  // Reset to beginning
+  location.reload();
+});
 
 /* ---------------- camera / selfie helpers ---------------- */
 async function startCamera() {
