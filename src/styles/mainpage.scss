@@ -3,6 +3,7 @@ body {
     text-align: center;
     background-color: black;
     justify-content: center;
+    min-height: 100dvh;
 }
 
 button {
@@ -1348,12 +1349,12 @@ h1 {
     min-width: 250px;
     text-align: center;
     color: #333;
-    background: rgba(255, 255, 255, 0.95);
+    // background: rgba(255, 255, 255, 0.95);
     padding: 1rem 2rem;
-    border-radius: 0;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    // border-radius: 0;
+    // backdrop-filter: blur(10px);
+    // box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    // border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .lightbox-name {
