@@ -390,6 +390,9 @@ window.addEventListener('load', () => {
   // Initialize filter controls
   initializeFilterControls();
   
+  // Initialize lightbox
+  initializeLightbox();
+  
   let isClicked = false;
   actionBtn.addEventListener('click', () => {
     if (isClicked) return; // ignore further clicks
@@ -1314,7 +1317,10 @@ function renderGallery(entries) {
   
   polaroidGrid.innerHTML = '';
   
-  entries.forEach(entry => {
+  // Update gallery images array for lightbox
+  updateGalleryImages(entries);
+  
+  entries.forEach((entry, index) => {
     const polaroidItem = document.createElement('div');
     polaroidItem.className = 'polaroid-item';
     
@@ -1337,6 +1343,14 @@ function renderGallery(entries) {
       </div>
     `;
     
+    // Add click event to open lightbox (only if photo exists)
+    if (photoSrc) {
+      polaroidItem.style.cursor = 'pointer';
+      polaroidItem.addEventListener('click', () => {
+        openLightbox(index);
+      });
+    }
+    
     polaroidGrid.appendChild(polaroidItem);
   });
 }
@@ -1350,13 +1364,13 @@ backToGuestbookBtn && backToGuestbookBtn.addEventListener('click', () => {
   location.reload();
 });
 
-shareAgainBtn && shareAgainBtn.addEventListener('click', () => {
-  if (gallerySection) {
-    gallerySection.style.display = 'none';
-  }
-  // Reset to beginning
-  location.reload();
-});
+// shareAgainBtn && shareAgainBtn.addEventListener('click', () => {
+//   if (gallerySection) {
+//     gallerySection.style.display = 'none';
+//   }
+//   // Reset to beginning
+//   location.reload();
+// });
 
 /* ---------------- camera / selfie helpers ---------------- */
 async function startCamera() {
@@ -1394,4 +1408,125 @@ function initializeAudioContext() {
       console.warn('Could not resume audio context:', err);
     });
   }
+}
+
+// Lightbox functionality
+let currentLightboxIndex = 0;
+let galleryImages = [];
+
+function initializeLightbox() {
+  const lightboxModal = document.getElementById('lightboxModal');
+  const lightboxClose = document.querySelector('.lightbox-close');
+  const lightboxPrev = document.getElementById('lightboxPrev');
+  const lightboxNext = document.getElementById('lightboxNext');
+  const lightboxImage = document.getElementById('lightboxImage');
+  const lightboxName = document.getElementById('lightboxName');
+  const lightboxDate = document.getElementById('lightboxDate');
+  const lightboxCounter = document.getElementById('lightboxCounter');
+
+  // Close lightbox
+  function closeLightbox() {
+    lightboxModal.classList.remove('show');
+    document.body.style.overflow = 'auto';
+  }
+
+  // Open lightbox
+  function openLightbox(index) {
+    currentLightboxIndex = index;
+    updateLightboxContent();
+    lightboxModal.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+
+  // Update lightbox content
+  function updateLightboxContent() {
+    if (galleryImages.length === 0) return;
+    
+    const currentImage = galleryImages[currentLightboxIndex];
+    lightboxImage.src = currentImage.photo;
+    lightboxImage.alt = currentImage.guest_name || 'Guest';
+    lightboxName.textContent = currentImage.guest_name || 'Guest';
+    lightboxDate.textContent = currentImage.date || '';
+    lightboxCounter.textContent = `${currentLightboxIndex + 1} / ${galleryImages.length}`;
+  }
+
+  // Navigate to previous image
+  function showPrevious() {
+    if (galleryImages.length === 0) return;
+    currentLightboxIndex = (currentLightboxIndex - 1 + galleryImages.length) % galleryImages.length;
+    updateLightboxContent();
+  }
+
+  // Navigate to next image
+  function showNext() {
+    if (galleryImages.length === 0) return;
+    currentLightboxIndex = (currentLightboxIndex + 1) % galleryImages.length;
+    updateLightboxContent();
+  }
+
+  // Event listeners
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightboxPrev.addEventListener('click', showPrevious);
+  lightboxNext.addEventListener('click', showNext);
+
+  // Close on background click
+  lightboxModal.addEventListener('click', (e) => {
+    if (e.target === lightboxModal) {
+      closeLightbox();
+    }
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (!lightboxModal.classList.contains('show')) return;
+    
+    switch(e.key) {
+      case 'Escape':
+        closeLightbox();
+        break;
+      case 'ArrowLeft':
+        showPrevious();
+        break;
+      case 'ArrowRight':
+        showNext();
+        break;
+    }
+  });
+
+  // Touch/swipe navigation for mobile
+  let startX = 0;
+  let startY = 0;
+
+  lightboxImage.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  });
+
+  lightboxImage.addEventListener('touchend', (e) => {
+    if (!lightboxModal.classList.contains('show')) return;
+    
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    const diffX = startX - endX;
+    const diffY = startY - endY;
+
+    // Only trigger if horizontal swipe is more significant than vertical
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+      if (diffX > 0) {
+        showNext(); // Swipe left = next
+      } else {
+        showPrevious(); // Swipe right = previous
+      }
+    }
+  });
+
+  // Make functions globally available
+  window.openLightbox = openLightbox;
+  window.galleryImages = galleryImages;
+}
+
+// Update gallery images array when loading gallery
+function updateGalleryImages(images) {
+  galleryImages = images;
+  window.galleryImages = galleryImages;
 }

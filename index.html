@@ -140,6 +140,27 @@
     </div>
   </section>
 
+  <!-- Lightbox Modal -->
+  <div id="lightboxModal" class="lightbox-modal">
+    <div class="lightbox-content">
+      <span class="lightbox-close">&times;</span>
+      <button class="lightbox-prev" id="lightboxPrev">&#10094;</button>
+      <button class="lightbox-next" id="lightboxNext">&#10095;</button>
+      
+      <div class="lightbox-image-container">
+        <img id="lightboxImage" class="lightbox-image" alt="Gallery Image">
+        <div class="lightbox-info">
+          <div class="lightbox-name" id="lightboxName"></div>
+          <div class="lightbox-date" id="lightboxDate"></div>
+        </div>
+      </div>
+      
+      <div class="lightbox-counter">
+        <span id="lightboxCounter">1 / 1</span>
+      </div>
+    </div>
+  </div>
+
   <!-- <audio id="ownerGreeting" src="/greeting.mp3"></audio> -->
   <script type="module" src="/src/main.js"></script>
 
