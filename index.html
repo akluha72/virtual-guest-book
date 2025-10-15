@@ -65,11 +65,19 @@
     <audio id="audioPlayback" controls style="display:none;" preload="auto" playsinline webkit-playsinline></audio>
   </section>
 
-
   <section class="selfie-section">
     <div class="camera-wrapper">
       <video id="camera" autoplay playsinline></video>
       <div class="camera-filter"></div>
+      
+      <!-- Filter Controls -->
+      <div class="filter-controls">
+        <button class="filter-btn active" data-filter="bw_grain">B&W</button>
+        <button class="filter-btn" data-filter="vintage">Vintage</button>
+        <button class="filter-btn" data-filter="dramatic">Dramatic</button>
+        <button class="filter-btn" data-filter="none">None</button>
+      </div>
+      
       <div class="shutter-button-wrapper">
         <button id="takePhotoBtn" class="shutter-button"></button>
       </div>
@@ -128,7 +136,6 @@
       
       <div class="gallery-actions">
         <button id="backToGuestbookBtn" class="gallery-btn">← Back to Guestbook</button>
-        <button id="shareAgainBtn" class="gallery-btn primary">Share Your Wishes</button>
       </div>
     </div>
   </section>

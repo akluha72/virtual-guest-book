@@ -19,6 +19,163 @@ let playbackAnalyser = null;    // analyser used for playback waveform
 let cameraStream = null;
 let capturedPhotoBlob = null;
 
+// Filter system
+let currentFilter = 'bw_grain'; // Default filter
+const filters = {
+  'none': {
+    name: 'None',
+    css: 'none',
+    canvas: null
+  },
+  'bw_grain': {
+    name: 'B&W Grain',
+    css: 'grayscale(100%) contrast(1.3) brightness(0.9)',
+    canvas: 'bw_grain'
+  },
+  'vintage': {
+    name: 'Vintage',
+    css: 'sepia(100%) contrast(1.2) brightness(1.1) saturate(0.8)',
+    canvas: 'vintage'
+  },
+  'dramatic': {
+    name: 'Dramatic',
+    css: 'contrast(1.5) brightness(0.8) saturate(1.2)',
+    canvas: 'dramatic'
+  }
+};
+
+// Apply filter to camera video
+function applyCameraFilter(filterKey) {
+  const filter = filters[filterKey];
+  if (!filter) return;
+  
+  const video = document.getElementById('camera');
+  if (video) {
+    video.style.filter = filter.css;
+  }
+  
+  currentFilter = filterKey;
+}
+
+// Apply filter to captured photo using canvas
+function applyPhotoFilter(imageData, filterType) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+  
+  ctx.putImageData(imageData, 0, 0);
+  
+  switch (filterType) {
+    case 'bw_grain':
+      return applyBWGrainFilter(ctx, canvas.width, canvas.height);
+    case 'vintage':
+      return applyVintageFilter(ctx, canvas.width, canvas.height);
+    case 'dramatic':
+      return applyDramaticFilter(ctx, canvas.width, canvas.height);
+    default:
+      return imageData;
+  }
+}
+
+// B&W Grain filter implementation
+function applyBWGrainFilter(ctx, width, height) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  
+  // Convert to grayscale
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    data[i] = gray;     // R
+    data[i + 1] = gray; // G
+    data[i + 2] = gray; // B
+  }
+  
+  // Apply contrast and brightness
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.max(0, Math.min(255, (data[i] - 128) * 1.3 + 128 * 0.9));
+    data[i + 1] = Math.max(0, Math.min(255, (data[i + 1] - 128) * 1.3 + 128 * 0.9));
+    data[i + 2] = Math.max(0, Math.min(255, (data[i + 2] - 128) * 1.3 + 128 * 0.9));
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+  
+  // Add grain overlay
+  addGrainOverlay(ctx, width, height);
+  
+  return ctx.getImageData(0, 0, width, height);
+}
+
+// Add grain overlay to canvas
+function addGrainOverlay(ctx, width, height) {
+  const grainData = ctx.createImageData(width, height);
+  const data = grainData.data;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 30; // Grain intensity
+    data[i] = noise;     // R
+    data[i + 1] = noise; // G
+    data[i + 2] = noise; // B
+    data[i + 3] = 30;    // A (opacity)
+  }
+  
+  // Create a temporary canvas for grain
+  const tempCanvas = document.createElement('canvas');
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  
+  // Put grain on temp canvas
+  tempCtx.putImageData(grainData, 0, 0);
+  
+  // Apply grain overlay
+  ctx.globalCompositeOperation = 'overlay';
+  ctx.drawImage(tempCanvas, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// Vintage filter implementation
+function applyVintageFilter(ctx, width, height) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    
+    // Sepia effect
+    data[i] = Math.min(255, (r * 0.393) + (g * 0.769) + (b * 0.189));
+    data[i + 1] = Math.min(255, (r * 0.349) + (g * 0.686) + (b * 0.168));
+    data[i + 2] = Math.min(255, (r * 0.272) + (g * 0.534) + (b * 0.131));
+    
+    // Apply contrast and brightness
+    data[i] = Math.max(0, Math.min(255, (data[i] - 128) * 1.2 + 128 * 1.1));
+    data[i + 1] = Math.max(0, Math.min(255, (data[i + 1] - 128) * 1.2 + 128 * 1.1));
+    data[i + 2] = Math.max(0, Math.min(255, (data[i + 2] - 128) * 1.2 + 128 * 1.1));
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+  return ctx.getImageData(0, 0, width, height);
+}
+
+// Dramatic filter implementation
+function applyDramaticFilter(ctx, width, height) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    // High contrast
+    data[i] = Math.max(0, Math.min(255, (data[i] - 128) * 1.5 + 128 * 0.8));
+    data[i + 1] = Math.max(0, Math.min(255, (data[i + 1] - 128) * 1.5 + 128 * 0.8));
+    data[i + 2] = Math.max(0, Math.min(255, (data[i + 2] - 128) * 1.5 + 128 * 0.8));
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+  return ctx.getImageData(0, 0, width, height);
+}
+
 // const actionBtn = document.getElementById("actionBtn");
 const restartBtn = document.getElementById("restartBtn");
 const submitNameBtn = document.getElementById("submitNameBtn");
@@ -91,7 +248,28 @@ const gallerySection = document.getElementById('gallerySection');
 const polaroidGrid = document.getElementById('polaroidGrid');
 const galleryCount = document.getElementById('galleryCount');
 const backToGuestbookBtn = document.getElementById('backToGuestbookBtn');
-const shareAgainBtn = document.getElementById('shareAgainBtn');
+
+// Filter control elements
+const filterButtons = document.querySelectorAll('.filter-btn');
+
+// Initialize filter controls
+function initializeFilterControls() {
+  filterButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const filterKey = e.target.dataset.filter;
+      
+      // Update active state
+      filterButtons.forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      
+      // Apply filter to camera
+      applyCameraFilter(filterKey);
+    });
+  });
+  
+  // Apply default filter
+  applyCameraFilter(currentFilter);
+}
 
 let uiState = 'idle'; // idle | playing_greeting | recording | ready | previewing
 let currentState = "idle"; // idle | recording | stopped (local recorder state)
@@ -208,6 +386,9 @@ document.addEventListener('click', initializeAudioContext, { once: true });
 window.addEventListener('load', () => {
   // Ensure idle waveform is drawn when page loads
   drawIdleWaveform(canvas2);
+  
+  // Initialize filter controls
+  initializeFilterControls();
   
   let isClicked = false;
   actionBtn.addEventListener('click', () => {
@@ -347,26 +528,61 @@ window.addEventListener('load', () => {
     photoCanvas.width = vw;
     photoCanvas.height = vh;
     const pctx = photoCanvas.getContext('2d');
+    
+    // Draw the video image first
     pctx.save();
     pctx.scale(-1, 1);
     pctx.drawImage(video, -vw, 0, vw, vh);
     pctx.restore();
-    pctx.drawImage(video, 0, 0, vw, vh, 0, 0, vw, vh);
+    
+    // Apply filter to captured photo
+    const imageData = pctx.getImageData(0, 0, vw, vh);
+    console.log('Image data captured, size:', imageData.data.length, 'pixels:', vw, 'x', vh);
+    
+    let filteredImageData;
+    
+    if (currentFilter === 'none') {
+      // No filter applied, use original image data
+      filteredImageData = imageData;
+      console.log('No filter applied, using original image data');
+    } else {
+      // Apply the selected filter
+      console.log('Applying filter:', currentFilter);
+      filteredImageData = applyPhotoFilter(imageData, currentFilter);
+      console.log('Filter applied successfully');
+    }
+    
+    // Clear canvas and draw the filtered image
+    pctx.clearRect(0, 0, vw, vh);
+    pctx.putImageData(filteredImageData, 0, 0);
+    
     photoCanvas.toBlob((blob) => {
       if (blob) {
+        console.log('Photo captured successfully, blob size:', blob.size);
         capturedPhotoBlob = blob;
         const url = URL.createObjectURL(blob);
+        console.log('Generated URL:', url);
+        
         if (finalPreviewPhoto) {
+          finalPreviewPhoto.onload = () => {
+            console.log('Final preview photo loaded successfully');
+          };
+          finalPreviewPhoto.onerror = (e) => {
+            console.error('Error loading final preview photo:', e);
+          };
           finalPreviewPhoto.src = url;
           // finalPreviewPhoto.style.display = 'block';
         }
+        
         if (photoCanvas) photoCanvas.style.display = 'none';
         if (camera) camera.style.display = 'none';
         if (retakePhotoBtn) retakePhotoBtn.disabled = false;
         if (takePhotoBtn) takePhotoBtn.disabled = true;
         stopCamera();
+      } else {
+        console.error('Failed to create photo blob');
       }
-    }, 'image/png');
+    }, 'image/png', 0.95);
 
 
     /* STEP 3: Flashing effect and polaroid appear with image taken. */
@@ -580,7 +796,10 @@ submitFinalBtn && submitFinalBtn.addEventListener('click', async () => {
   if (!recordedBlob) return;
   try {
     const form = new FormData();
-    form.append('guest_name', (guestName && guestName.value) || '');
+    const hiddenNameInput = document.getElementById("hiddenNameInput");
+    const guestName = hiddenNameInput ? hiddenNameInput.value.trim() : '';
+    console.log('Submitting guest name:', guestName);
+    form.append('guest_name', guestName);
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
