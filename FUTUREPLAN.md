@@ -40,3 +40,15 @@ v
 
 //not MVP
 1. Have a grid of polaroid photo for guest to see how has submitted. Collection of polaroid
+
+
+
+15/10/2025
+1. shutter button shouldn't be available to the user until user allow the based on browser request. have a blur layer asking user to allow browser permission to allow camera first. then remove blur layer.
+2. In Guest Gallery section when user in lightbox mode i want to have a polaroid frame behind the image.
+3. I have new microphone image assets 'microphone-2-edit.png' to replace the white dot with a microphone image instead. 
+
+
+
+3. NOT IMPORTANT - Add notes at the back of polaroid. when user enter their name allow them to add notes at the back of the polaroid where it will allows user to flip the polaroid. And write a message. And user can preview the message at the back of the polaroid when the click polaroid. 
+4. When user play on gallery preview section add music play pause button

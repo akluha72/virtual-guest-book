@@ -18,6 +18,10 @@ let playbackAnalyser = null;    // analyser used for playback waveform
 
 let cameraStream = null;
 let capturedPhotoBlob = null;
+let cameraPermissionGranted = false;
+
+// Voice filter system (always enabled)
+let voiceFilterNodes = null;
 
 // Filter system
 let currentFilter = 'bw_grain'; // Default filter
@@ -252,6 +256,12 @@ const backToGuestbookBtn = document.getElementById('backToGuestbookBtn');
 // Filter control elements
 const filterButtons = document.querySelectorAll('.filter-btn');
 
+// Camera permission elements
+const cameraPermissionOverlay = document.getElementById('cameraPermissionOverlay');
+const requestCameraPermissionBtn = document.getElementById('requestCameraPermission');
+
+// Voice filter is always enabled - no toggle needed
+
 // Initialize filter controls
 function initializeFilterControls() {
   filterButtons.forEach(btn => {
@@ -269,6 +279,178 @@ function initializeFilterControls() {
   
   // Apply default filter
   applyCameraFilter(currentFilter);
+}
+
+// Initialize camera permission system
+function initializeCameraPermission() {
+  if (requestCameraPermissionBtn) {
+    requestCameraPermissionBtn.addEventListener('click', requestCameraPermission);
+  }
+}
+
+// Voice filter is always enabled - no initialization needed
+
+// Voice filter functions for vintage phone effect (always enabled)
+function createVoiceFilter(ctx) {
+  
+  try {
+    // Create audio processing chain for vintage phone effect
+    const source = ctx.createGain();
+    const lowPass = ctx.createBiquadFilter();
+    const highPass = ctx.createBiquadFilter();
+    const compressor = ctx.createDynamicsCompressor();
+    const bitcrusher = createBitcrusher(ctx);
+    const output = ctx.createGain();
+    
+    // Configure low-pass filter (muffled phone sound)
+    lowPass.type = 'lowpass';
+    lowPass.frequency.setValueAtTime(3400, ctx.currentTime); // Phone bandwidth
+    lowPass.Q.setValueAtTime(1, ctx.currentTime);
+    
+    // Configure high-pass filter (remove low frequencies)
+    highPass.type = 'highpass';
+    highPass.frequency.setValueAtTime(300, ctx.currentTime); // Phone frequency range
+    highPass.Q.setValueAtTime(0.5, ctx.currentTime);
+    
+    // Configure compressor for phone-like dynamics
+    compressor.threshold.setValueAtTime(-20, ctx.currentTime);
+    compressor.knee.setValueAtTime(10, ctx.currentTime);
+    compressor.ratio.setValueAtTime(4, ctx.currentTime);
+    compressor.attack.setValueAtTime(0.01, ctx.currentTime);
+    compressor.release.setValueAtTime(0.1, ctx.currentTime);
+    
+    // Connect the audio chain
+    source.connect(highPass);
+    highPass.connect(lowPass);
+    lowPass.connect(compressor);
+    compressor.connect(bitcrusher);
+    bitcrusher.connect(output);
+    
+    return {
+      input: source,
+      output: output,
+      disconnect: () => {
+        try { source.disconnect(); } catch (e) { }
+        try { highPass.disconnect(); } catch (e) { }
+        try { lowPass.disconnect(); } catch (e) { }
+        try { compressor.disconnect(); } catch (e) { }
+        try { bitcrusher.disconnect(); } catch (e) { }
+        try { output.disconnect(); } catch (e) { }
+      }
+    };
+  } catch (e) {
+    console.warn('Voice filter creation failed:', e);
+    return null;
+  }
+}
+
+// Create bitcrusher effect for digital phone quality
+function createBitcrusher(ctx) {
+  const bufferSize = 4096;
+  const bitDepth = 8; // Low bit depth for phone quality
+  const sampleRate = 8000; // Phone sample rate
+  
+  const processor = ctx.createScriptProcessor(bufferSize, 1, 1);
+  
+  processor.onaudioprocess = function(e) {
+    const input = e.inputBuffer.getChannelData(0);
+    const output = e.outputBuffer.getChannelData(0);
+    
+    for (let i = 0; i < input.length; i++) {
+      // Apply bitcrushing
+      let sample = input[i];
+      sample = Math.max(-1, Math.min(1, sample));
+      sample = Math.floor(sample * (Math.pow(2, bitDepth) - 1)) / (Math.pow(2, bitDepth) - 1);
+      
+      // Add slight distortion for phone quality
+      sample = Math.tanh(sample * 1.2) * 0.8;
+      
+      output[i] = sample;
+    }
+  };
+  
+  return processor;
+}
+
+// Apply voice filter to recorded audio blob (always enabled)
+async function applyVoiceFilterToBlob(audioBlob) {
+  
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    
+    // Create offline context for processing
+    const offlineCtx = new OfflineAudioContext(
+      audioBuffer.numberOfChannels,
+      audioBuffer.length,
+      audioBuffer.sampleRate
+    );
+    
+    // Create voice filter
+    const filter = createVoiceFilter(offlineCtx);
+    if (!filter) return audioBlob;
+    
+    // Create source and connect to filter
+    const source = offlineCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(filter.input);
+    filter.output.connect(offlineCtx.destination);
+    
+    // Render the processed audio
+    source.start();
+    const processedBuffer = await offlineCtx.startRendering();
+    
+    // Convert back to blob
+    const wavBlob = await audioBufferToWav(processedBuffer);
+    return wavBlob;
+    
+  } catch (e) {
+    console.warn('Voice filter processing failed:', e);
+    return audioBlob;
+  }
+}
+
+// Convert AudioBuffer to WAV blob
+async function audioBufferToWav(buffer) {
+  const length = buffer.length;
+  const numberOfChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const arrayBuffer = new ArrayBuffer(44 + length * numberOfChannels * 2);
+  const view = new DataView(arrayBuffer);
+  
+  // WAV header
+  const writeString = (offset, string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+  
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + length * numberOfChannels * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numberOfChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numberOfChannels * 2, true);
+  view.setUint16(32, numberOfChannels * 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, length * numberOfChannels * 2, true);
+  
+  // Convert audio data
+  let offset = 44;
+  for (let i = 0; i < length; i++) {
+    for (let channel = 0; channel < numberOfChannels; channel++) {
+      const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      offset += 2;
+    }
+  }
+  
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
 }
 
 let uiState = 'idle'; // idle | playing_greeting | recording | ready | previewing
@@ -393,6 +575,9 @@ window.addEventListener('load', () => {
   // Initialize lightbox
   initializeLightbox();
   
+  // Initialize camera permission
+  initializeCameraPermission();
+  
   let isClicked = false;
   actionBtn.addEventListener('click', () => {
     if (isClicked) return; // ignore further clicks
@@ -514,7 +699,7 @@ window.addEventListener('load', () => {
   */
 
   takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
-    if (!camera) return;
+    if (!camera || !cameraPermissionGranted) return;
     const video = camera;
     const vw = video.videoWidth || 640;
     const vh = video.videoHeight || 480;
@@ -628,6 +813,27 @@ window.addEventListener('load', () => {
 
       function focusInput() {
         hiddenInput.focus();
+        scrollToNameInput();
+      }
+
+      function scrollToNameInput() {
+        // Scroll to make the input visible when keyboard opens on mobile
+        setTimeout(() => {
+          const displayNameElement = document.getElementById("displayName");
+          if (displayNameElement) {
+            // Get the current viewport height
+            const viewportHeight = window.innerHeight;
+            
+            // Calculate the optimal scroll position
+            // Position the name input in the upper third of the visible area
+            const targetPosition = displayNameElement.offsetTop - (viewportHeight * 0.3);
+            
+            window.scrollTo({
+              top: Math.max(0, targetPosition),
+              behavior: 'smooth'
+            });
+          }
+        }, 150); // Slightly longer delay to ensure keyboard is fully open
       }
 
       // When user clicks or taps the name area
@@ -637,6 +843,9 @@ window.addEventListener('load', () => {
       window.addEventListener("load", () => {
         hiddenInput.focus();
       });
+
+      // Add scroll behavior when hidden input is focused
+      hiddenInput.addEventListener("focus", scrollToNameInput);
 
       // Typing logic
       hiddenInput.addEventListener("input", () => {
@@ -649,6 +858,18 @@ window.addEventListener('load', () => {
         if (e.key === "Enter") {
           hiddenInput.blur();
         }
+      });
+
+      // Handle window resize (keyboard show/hide, orientation change)
+      let resizeTimeout;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          // If the input is focused and we're on mobile, adjust scroll position
+          if (hiddenInput === document.activeElement && window.innerWidth <= 768) {
+            scrollToNameInput();
+          }
+        }, 300);
       });
 
       submitNameBtn && submitNameBtn.addEventListener('click', async () => {
@@ -790,7 +1011,7 @@ retakePhotoText && retakePhotoText.addEventListener('click', () => {
     selfieSection.style.transition = 'opacity 0.5s ease-in';
   }
   
-  // Restart camera
+  // Restart camera (this will show permission overlay if needed)
   startCamera();
 });
 
@@ -1084,14 +1305,23 @@ async function startRecording() {
     const micAnalyser = ctx.createAnalyser();
     micAnalyser.fftSize = 2048;
 
-    // connect only source -> analyser (no destination)
-    sourceNode.connect(micAnalyser);
+    // Create voice filter for vintage phone effect
+    const voiceFilter = createVoiceFilter(ctx);
+    if (voiceFilter) {
+      // Connect through voice filter
+      sourceNode.connect(voiceFilter.input);
+      voiceFilter.output.connect(micAnalyser);
+      voiceFilterNodes = voiceFilter;
+    } else {
+      // Fallback to direct connection
+      sourceNode.connect(micAnalyser);
+    }
 
     // draw waveform on the guest canvas during recording
     const vizController = drawWaveform(micAnalyser, canvas2);
 
     // store for cleanup
-    currentRecording = { stream, sourceNode, analyser: micAnalyser, vizController };
+    currentRecording = { stream, sourceNode, analyser: micAnalyser, vizController, voiceFilter };
 
     // Decide best supported audio mime type (iOS Safari prefers AAC in MP4)
     if (!selectedAudioMimeType) {
@@ -1121,10 +1351,20 @@ async function startRecording() {
       if (e.data && e.data.size > 0) audioChunks.push(e.data);
     };
 
-    mediaRecorder.onstop = () => {
+    mediaRecorder.onstop = async () => {
       // Use the recorder's mimeType if available, else fall back to selection or webm
       const blobType = (mediaRecorder && mediaRecorder.mimeType) || selectedAudioMimeType || 'audio/webm';
-      recordedBlob = new Blob(audioChunks, { type: blobType });
+      const originalBlob = new Blob(audioChunks, { type: blobType });
+      
+      // Apply voice filter to the recorded audio
+      try {
+        recordedBlob = await applyVoiceFilterToBlob(originalBlob);
+        console.log('Voice filter applied to recording');
+      } catch (e) {
+        console.warn('Voice filter failed, using original audio:', e);
+        recordedBlob = originalBlob;
+      }
+      
       const audioUrl = URL.createObjectURL(recordedBlob);
 
       // put recorded audio into guest playback element
@@ -1154,6 +1394,11 @@ function stopRecording() {
   if (currentRecording) {
     try { currentRecording.sourceNode.disconnect(); } catch (e) { }
     try { currentRecording.analyser.disconnect(); } catch (e) { }
+    try { 
+      if (currentRecording.voiceFilter && currentRecording.voiceFilter.disconnect) {
+        currentRecording.voiceFilter.disconnect();
+      }
+    } catch (e) { }
     try {
       currentRecording.stream.getTracks().forEach(t => t.stop());
     } catch (e) { }
@@ -1373,20 +1618,68 @@ backToGuestbookBtn && backToGuestbookBtn.addEventListener('click', () => {
 // });
 
 /* ---------------- camera / selfie helpers ---------------- */
-async function startCamera() {
+async function requestCameraPermission() {
   try {
-    // Stop any existing stream first
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(t => t.stop());
+    // Request camera permission
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    cameraPermissionGranted = true;
+    
+    // Hide permission overlay
+    if (cameraPermissionOverlay) {
+      cameraPermissionOverlay.classList.add('hidden');
+      setTimeout(() => {
+        cameraPermissionOverlay.style.display = 'none';
+      }, 500);
     }
     
-    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    // Enable shutter button
+    if (takePhotoBtn) {
+      takePhotoBtn.disabled = false;
+    }
+    
+    // Start camera
     if (camera) {
       camera.srcObject = cameraStream;
-      camera.style.display = 'block'; // Ensure camera is visible
+      camera.style.display = 'block';
     }
+    
+    console.log('Camera permission granted and camera started');
   } catch (e) {
-    console.error('Failed to start camera', e);
+    console.error('Failed to get camera permission:', e);
+    // Show error message to user
+    if (cameraPermissionOverlay) {
+      const message = cameraPermissionOverlay.querySelector('.permission-message');
+      const button = cameraPermissionOverlay.querySelector('.permission-button');
+      if (message) {
+        message.textContent = 'Camera access was denied. Please refresh the page and allow camera access to continue.';
+      }
+      if (button) {
+        button.textContent = 'Try Again';
+        button.onclick = () => location.reload();
+      }
+    }
+  }
+}
+
+async function startCamera() {
+  // Check if we already have permission
+  if (cameraPermissionGranted && cameraStream) {
+    if (camera) {
+      camera.srcObject = cameraStream;
+      camera.style.display = 'block';
+    }
+    return;
+  }
+  
+  // Show permission overlay if not granted
+  if (cameraPermissionOverlay) {
+    cameraPermissionOverlay.style.display = 'flex';
+    cameraPermissionOverlay.classList.remove('hidden');
+  }
+  
+  // Disable shutter button until permission is granted
+  if (takePhotoBtn) {
+    takePhotoBtn.disabled = true;
   }
 }
 
