@@ -4,74 +4,199 @@
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Voice Guestbook</title>
-  
+
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Sacramento&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Homemade+Apple&family=Reenie+Beanie&display=swap"
+    rel="stylesheet">
 </head>
 
 <body>
-  <div class="content-wrapper">
-    <h1>Virtual Voice Guestbook ✒️</h1>
-    <video id="greetingVideo" width="320" height="240" controls autoplay playsinline>
-      <source src="/public/video/video-sample.MP4" type="video/mp4">
-      Your browser does not support the video tag.
-    </video>
-    <p>Leave your wishes after listening to the greeting.</p>
+  <section class="splash-screen">
+    <h2>Firdaus & Najiha</h2>
+    <div class="start-button">
+      <div class="start-button-text" id="actionBtn"> Click here to start</div>
+  </section>
 
-    <!-- Inline Save Flow (shown after greeting) -->
-    <div id="inlineSave" style="max-width:960px; margin: 1.25rem auto; padding: 1rem; text-align:center; display:none;">
+  <section class="brides-greeting-section">
+    <canvas id="visualizer"
+      style="width:100%; height:120px; background: black; border-radius:8px; display:block; margin: 0.75rem auto;"></canvas>
+    <audio id="audioPlayback-greetings" controls style="display:none"></audio>
+    <div class="vtt-container" id="lyricsBox"> test </div>
+  </section>
 
-
-      <section style="margin: 1rem 0;">
-        <h2>Take a Selfie</h2>
-        <video id="camera" autoplay playsinline muted style="width:100%; max-width:250px; aspect-ratio:1 / 1; object-fit:cover; border-radius:50%;  background:#000;"></video>
-        <canvas id="photoCanvas" style="display:none; width:100%; max-width:250px; aspect-ratio:1 / 1; object-fit:cover; border-radius:50%;"></canvas>
-        <img id="photoPreview" style="display:none; width:100%; max-width:250px; aspect-ratio:1 / 1; object-fit:cover; border-radius:50%; margin: 0 auto;">
-        <div style="margin-top:0.75rem; display:flex; gap:0.5rem; justify-content:center;">
-          <button id="takePhotoBtn">📸 Capture</button>
-          <button id="retakePhotoBtn" disabled>↩️ Retake</button>
+  <section class="guest-wishes-section">
+    <div class="voice-recorder-container">
+      <h2 class="recorder-title">Voice Recorder</h2>
+      
+      <!-- Recording indicator -->
+      <div class="recording-indicator-container">
+        <div class="recording-indicator" id="recordingIndicator">
+          <div class="microphone-icon">
+            <div class="mic-circle">
+              <img src="./image-assets/microphone-2-edit.png" alt="microphone">
+            </div>
+          </div>
         </div>
-      </section>
-
-    </div>
-
-    <!-- Voice recording section (moved above Name) -->
-    <canvas id="visualizer" style="width:80%; height:120px; background:#111; border-radius:8px; display:block; margin: 0.75rem auto;"></canvas>
-    <button id="actionBtn">▶️ Start</button>
-    <!-- <div id="postControls" style="margin-top: 1rem; display:none; gap: 0.5rem; justify-content:center;">
-      <button id="restartBtn">↩️ Restart</button>
-    </div> -->
-
-    <!-- <h3>Preview:</h3> -->
-      <audio id="audioPlayback" controls style="display:none"></audio>
-
-    <!-- Name section at bottom (hidden until greeting ends) -->
-    <section id="nameSection" style="margin: 1rem 0; display:none;">
-      <h2>Your Name</h2>
-      <div style="display:flex; gap:0.75rem; justify-content:center; flex-wrap:wrap;">
-        <input id="guestName" type="text" placeholder="Enter your name" style="padding:0.6rem 0.9rem; border-radius:8px; border:1px solid #999; min-width:260px;" />
       </div>
-    </section>
+      
+      <!-- Recording timer -->
+      <div class="recording-timer" id="recordingTimer">00:00:00</div>
+      
+      <!-- Audio waveform visualizer -->
+      <div class="waveform-container">
+        <canvas id="visualizer2" class="waveform-canvas"></canvas>
+      </div>
+      
+      <!-- Control buttons -->
+      <div class="recording-controls">
+        <button id="recordBtn" class="record-btn idle">🎤 Start Recording</button>
+      </div>
+      
+      <!-- Post-recording controls -->
+      <div id="postControls" class="post-controls" style="display:none;">
+        <button id="restartRecordingBtn" class="restart-btn">🔄 Restart</button>
+        <button id="saveRecordingBtn" class="save-btn">Next ✅</button>
+      </div>
+    </div>
+    
+    <audio id="audioPlayback" controls style="display:none;" preload="auto" playsinline webkit-playsinline></audio>
+  </section>
 
-    <div id="nameActions" style="margin: 1rem 0; display:none; gap:0.5rem; justify-content:center; flex-wrap:wrap;">
-      <button id="restartBtn">🔁 Restart</button>
-      <button id="submitBtn">✅ Save</button>
+  <section class="selfie-section">
+    <div class="camera-wrapper">
+      <video id="camera" autoplay playsinline></video>
+      <div class="camera-filter"></div>
+      
+      <!-- Camera Permission Overlay -->
+      <div id="cameraPermissionOverlay" class="camera-permission-overlay">
+        <div class="permission-content">
+          <h2 class="permission-title">Camera Access Required</h2>
+          <p class="permission-message">Please allow camera access to take your selfie. We need your permission to use the camera for this feature.</p>
+          <button id="requestCameraPermission" class="permission-button">Allow Camera Access</button>
+          <p class="permission-note">Your privacy is important to us. Camera access is only used for taking photos and is not stored or shared.</p>
+        </div>
+      </div>
+      
+      <!-- Filter Controls -->
+      <div class="filter-controls">
+        <button class="filter-btn active" data-filter="bw_grain">B&W</button>
+        <button class="filter-btn" data-filter="vintage">Vintage</button>
+        <button class="filter-btn" data-filter="dramatic">Dramatic</button>
+        <button class="filter-btn" data-filter="none">None</button>
+      </div>
+      
+      <div class="shutter-button-wrapper">
+        <button id="takePhotoBtn" class="shutter-button" disabled></button>
+      </div>
+    </div>
+    <canvas id="photoCanvas" style="display: none;"></canvas>
+    <div id="flashOverlay" class="flash-overlay"></div>
+  </section>
+
+  <!-- Final Preview Overlay -->
+  <div id="finalPreviewOverlay" class="finalPreviewOverlay">
+    <div class="polaroid-frame">
+      <div class="photo-area">
+        <img id="finalPreviewPhoto" class="guest-photo" alt="Guest" />
+      </div>
+
+      <div class="guest-info">
+        <canvas id="finalPreviewCanvas" class="audio-visualizer" width="400" height="60"></canvas>
+        <audio id="finalPreviewAudio" class="audio-player" preload="metadata"></audio>
+        <!-- Display name area -->
+        <h2 id="displayName" class="editable-name" tabindex="0">Click here to enter your name<span class="cursor">|</span></h2>
+
+        <!-- Hidden input for actual typing -->
+        <input id="hiddenNameInput" type="text" style="position:absolute; opacity:0; pointer-events:none;" />
+      </div>
+
+      <div class="bottom-bar">
+        <span id="finalPreviewDate" class="guest-date">Oct 9, 2025</span>
+      </div>
     </div>
 
-    <!-- <audio id="ownerGreeting" src="/greeting.mp3"></audio> -->
-    <script type="module" src="/src/main.js"></script>
+    <div class="retake-photo-section">
+      <span id="retakePhotoText" class="retake-photo-text">Retake Photo</span>
+    </div>
+
+    <div class="final-button">
+      <button id="restartBtn">🔁 Restart</button>
+
+      <button id="submitFinalBtn">✅ Submit</button>
+    </div>
   </div>
 
+  <!-- Gallery Section -->
+  <section class="gallery-section" id="gallerySection" style="display:none;">
+    <div class="gallery-container">
+      <div class="gallery-header">
+        <h1 class="gallery-title">Guest Gallery</h1>
+        <p class="gallery-subtitle">See what others have shared!</p>
+        <div class="gallery-stats">
+          <span id="galleryCount">Loading...</span> guests have shared their wishes
+        </div>
+      </div>
+      
+      <div class="polaroid-grid" id="polaroidGrid">
+        <!-- Polaroids will be loaded here -->
+      </div>
+      
+      <div class="gallery-actions">
+        <button id="backToGuestbookBtn" class="gallery-btn">← Back to Guestbook</button>
+      </div>
+    </div>
+  </section>
 
-  <footer>
-    <p class="version-tag" id="version"></p>
-  </footer>
-  <script type="module">
-    document.getElementById("version").innerText =
-      `Build: ${__APP_VERSION__} (Generated on ${__BUILD_DATE__})`;
+  <!-- Lightbox Modal -->
+  <div id="lightboxModal" class="lightbox-modal">
+    <div class="lightbox-content">
+      <span class="lightbox-close">&times;</span>
+      <button class="lightbox-prev" id="lightboxPrev">&#10094;</button>
+      <button class="lightbox-next" id="lightboxNext">&#10095;</button>
+      
+      <div class="lightbox-image-container">
+        <img id="lightboxImage" class="lightbox-image" alt="Gallery Image">
+        <div class="lightbox-info">
+          <div class="lightbox-name" id="lightboxName"></div>
+          <div class="lightbox-date" id="lightboxDate"></div>
+        </div>
+      </div>
+      
+      <div class="lightbox-counter">
+        <span id="lightboxCounter">1 / 1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- <audio id="ownerGreeting" src="/greeting.mp3"></audio> -->
+  <script type="module" src="/src/main.js"></script>
+
+  <script>
+    // Get the canvas element
+    const canvas = document.getElementById("visualizer");
+    const ctx = canvas.getContext("2d");
+
+    // Match canvas size to its displayed size (to avoid blur)
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+    ctx.scale(dpr, dpr);
+
+    // Set line style
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+
+    // Draw a horizontal line in the center
+    const midY = canvas.clientHeight / 2;
+    ctx.beginPath();
+    ctx.moveTo(0, midY);
+    ctx.lineTo(canvas.clientWidth, midY);
+    ctx.stroke();
   </script>
 </body>
 

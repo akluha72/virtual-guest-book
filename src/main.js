@@ -1,354 +1,925 @@
 import './style.css'
 import './styles/mainpage.scss'
+import './styles/splashscreen.scss'
 
+/* ---------------- globals ---------------- */
 let mediaRecorder;
 let audioChunks = [];
 let recordedBlob = null;
 let animationId;
-let audioCtx, analyser;
-let uiState = 'idle'; // idle | playing_greeting | recording | ready | previewing
-let playbackSourceNode = null; // cached MediaElementSource for audioPlayback
-let playbackAnalyser = null;   // analyser used for playback waveform
-let cameraStream = null; // media stream for inline selfie capture
-let capturedPhotoBlob = null; // holds captured selfie
 
-const actionBtn = document.getElementById("actionBtn");
+// Selected mime type for MediaRecorder (decided at runtime based on support)
+let selectedAudioMimeType = null;
+
+let audioCtx = null;
+let analyser = null;            // generic analyser (when needed)
+let playbackSourceNode = null;  // cached MediaElementSource for guest playback
+let playbackAnalyser = null;    // analyser used for playback waveform
+
+let cameraStream = null;
+let capturedPhotoBlob = null;
+let cameraPermissionGranted = false;
+
+// Voice filter system (always enabled)
+let voiceFilterNodes = null;
+
+// Filter system
+let currentFilter = 'bw_grain'; // Default filter
+const filters = {
+  'none': {
+    name: 'None',
+    css: 'none',
+    canvas: null
+  },
+  'bw_grain': {
+    name: 'B&W Grain',
+    css: 'grayscale(100%) contrast(1.3) brightness(0.9)',
+    canvas: 'bw_grain'
+  },
+  'vintage': {
+    name: 'Vintage',
+    css: 'sepia(100%) contrast(1.2) brightness(1.1) saturate(0.8)',
+    canvas: 'vintage'
+  },
+  'dramatic': {
+    name: 'Dramatic',
+    css: 'contrast(1.5) brightness(0.8) saturate(1.2)',
+    canvas: 'dramatic'
+  }
+};
+
+// Apply filter to camera video
+function applyCameraFilter(filterKey) {
+  const filter = filters[filterKey];
+  if (!filter) return;
+  
+  const video = document.getElementById('camera');
+  if (video) {
+    video.style.filter = filter.css;
+  }
+  
+  currentFilter = filterKey;
+}
+
+// Apply filter to captured photo using canvas
+function applyPhotoFilter(imageData, filterType) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+  
+  ctx.putImageData(imageData, 0, 0);
+  
+  switch (filterType) {
+    case 'bw_grain':
+      return applyBWGrainFilter(ctx, canvas.width, canvas.height);
+    case 'vintage':
+      return applyVintageFilter(ctx, canvas.width, canvas.height);
+    case 'dramatic':
+      return applyDramaticFilter(ctx, canvas.width, canvas.height);
+    default:
+      return imageData;
+  }
+}
+
+// B&W Grain filter implementation
+function applyBWGrainFilter(ctx, width, height) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  
+  // Convert to grayscale
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    data[i] = gray;     // R
+    data[i + 1] = gray; // G
+    data[i + 2] = gray; // B
+  }
+  
+  // Apply contrast and brightness
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.max(0, Math.min(255, (data[i] - 128) * 1.3 + 128 * 0.9));
+    data[i + 1] = Math.max(0, Math.min(255, (data[i + 1] - 128) * 1.3 + 128 * 0.9));
+    data[i + 2] = Math.max(0, Math.min(255, (data[i + 2] - 128) * 1.3 + 128 * 0.9));
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+  
+  // Add grain overlay
+  addGrainOverlay(ctx, width, height);
+  
+  return ctx.getImageData(0, 0, width, height);
+}
+
+// Add grain overlay to canvas
+function addGrainOverlay(ctx, width, height) {
+  const grainData = ctx.createImageData(width, height);
+  const data = grainData.data;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const noise = (Math.random() - 0.5) * 30; // Grain intensity
+    data[i] = noise;     // R
+    data[i + 1] = noise; // G
+    data[i + 2] = noise; // B
+    data[i + 3] = 30;    // A (opacity)
+  }
+  
+  // Create a temporary canvas for grain
+  const tempCanvas = document.createElement('canvas');
+  const tempCtx = tempCanvas.getContext('2d');
+  tempCanvas.width = width;
+  tempCanvas.height = height;
+  
+  // Put grain on temp canvas
+  tempCtx.putImageData(grainData, 0, 0);
+  
+  // Apply grain overlay
+  ctx.globalCompositeOperation = 'overlay';
+  ctx.drawImage(tempCanvas, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+// Vintage filter implementation
+function applyVintageFilter(ctx, width, height) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    
+    // Sepia effect
+    data[i] = Math.min(255, (r * 0.393) + (g * 0.769) + (b * 0.189));
+    data[i + 1] = Math.min(255, (r * 0.349) + (g * 0.686) + (b * 0.168));
+    data[i + 2] = Math.min(255, (r * 0.272) + (g * 0.534) + (b * 0.131));
+    
+    // Apply contrast and brightness
+    data[i] = Math.max(0, Math.min(255, (data[i] - 128) * 1.2 + 128 * 1.1));
+    data[i + 1] = Math.max(0, Math.min(255, (data[i + 1] - 128) * 1.2 + 128 * 1.1));
+    data[i + 2] = Math.max(0, Math.min(255, (data[i + 2] - 128) * 1.2 + 128 * 1.1));
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+  return ctx.getImageData(0, 0, width, height);
+}
+
+// Dramatic filter implementation
+function applyDramaticFilter(ctx, width, height) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    // High contrast
+    data[i] = Math.max(0, Math.min(255, (data[i] - 128) * 1.5 + 128 * 0.8));
+    data[i + 1] = Math.max(0, Math.min(255, (data[i + 1] - 128) * 1.5 + 128 * 0.8));
+    data[i + 2] = Math.max(0, Math.min(255, (data[i + 2] - 128) * 1.5 + 128 * 0.8));
+  }
+  
+  ctx.putImageData(imageData, 0, 0);
+  return ctx.getImageData(0, 0, width, height);
+}
+
+// const actionBtn = document.getElementById("actionBtn");
 const restartBtn = document.getElementById("restartBtn");
-// const postControls = document.getElementById("postControls");
-const audioPlayback = document.getElementById("audioPlayback");
+const submitNameBtn = document.getElementById("submitNameBtn");
+const submitSelfieBtn = document.getElementById("submitSelfieBtn");
+const takePhotoBtn = document.getElementById("takePhotoBtn");
+const retakePhotoBtn = document.getElementById("retakePhotoBtn");
+const recordBtn = document.getElementById("recordBtn");
+const backBtn = document.getElementById("backBtn");
+const submitBtn = document.getElementById("submitBtn");
+const restartRecordingBtn = document.getElementById("restartRecordingBtn");
+const saveRecordingBtn = document.getElementById("saveRecordingBtn");
+const postControls = document.getElementById("postControls");
+
+const splashScreenSection = document.querySelector(".splash-screen");
+const bridesGreetingSection = document.querySelector(".brides-greeting-section");
+const selfieSection = document.querySelector(".selfie-section");
+const nameSection = document.querySelector(".name-section");
+const guestWishesSection = document.querySelector(".guest-wishes-section");
+
+// NOTE: two separate audio elements in the DOM
+const audioPlaybackGuest = document.getElementById("audioPlayback"); // for recorded messages (guest)
+const audioPlaybackGreetings = document.getElementById("audioPlayback-greetings"); // (if used)
+
+// Ensure inline playback on iOS
+if (audioPlaybackGuest) {
+  try { audioPlaybackGuest.setAttribute('playsinline', ''); } catch (_) { }
+}
+if (audioPlaybackGreetings) {
+  try { audioPlaybackGreetings.setAttribute('playsinline', ''); } catch (_) { }
+}
+
 const canvas = document.getElementById("visualizer");
-const ctx = canvas.getContext("2d");
+const canvas2 = document.getElementById("visualizer2");
+
+// New voice recorder elements
+const recordingIndicator = document.getElementById("recordingIndicator");
+const recordingTimer = document.getElementById("recordingTimer");
+
+// Wait for DOM to be ready before drawing idle waveform
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    drawIdleWaveform(canvas2);
+  });
+} else {
+  drawIdleWaveform(canvas2);
+}
+
 
 // Inline save elements
-const inlineSave = document.getElementById("inlineSave");
-const greetingVideo = document.getElementById("greetingVideo");
 const camera = document.getElementById("camera");
 const photoCanvas = document.getElementById("photoCanvas");
 const photoPreview = document.getElementById("photoPreview");
-const takePhotoBtn = document.getElementById("takePhotoBtn");
-const retakePhotoBtn = document.getElementById("retakePhotoBtn");
 const guestName = document.getElementById("guestName");
-const backBtn = document.getElementById("backBtn");
-const submitBtn = document.getElementById("submitBtn");
-const nameSection = document.getElementById("nameSection");
 const nameActions = document.getElementById("nameActions");
 
-canvas.width = canvas.offsetWidth;
-canvas.height = canvas.offsetHeight;
+// Final preview overlay elements
+const finalPreviewOverlay = document.getElementById('finalPreviewOverlay');
+const finalPreviewPhoto = document.getElementById('finalPreviewPhoto');
+const finalPreviewName = document.getElementById('finalPreviewName');
+const finalPreviewDate = document.getElementById('finalPreviewDate');
+const finalPreviewCanvas = document.getElementById('finalPreviewCanvas');
+const finalPreviewAudio = document.getElementById('finalPreviewAudio');
+const retakePhotoText = document.getElementById('retakePhotoText');
+const finalPreviewPlayBtn = document.getElementById('finalPreviewPlayBtn');
+const editEntryBtn = document.getElementById('editEntryBtn');
+const submitFinalBtn = document.getElementById('submitFinalBtn');
 
-// === Random Greeting Pool ===
-const greetings = [
-  "/voice-note/voice4-effect.wav",
-];
+// Gallery elements
+const gallerySection = document.getElementById('gallerySection');
+const polaroidGrid = document.getElementById('polaroidGrid');
+const galleryCount = document.getElementById('galleryCount');
+const backToGuestbookBtn = document.getElementById('backToGuestbookBtn');
 
-function playRandomGreeting() {
-  const randomIndex = Math.floor(Math.random() * greetings.length);
-  const url = greetings[randomIndex];
-  const audio = new Audio(url);
-  audio.crossOrigin = 'anonymous';
-  audio.onerror = (e) => {
-    console.error('Greeting failed to load', url, e);
-  };
-  // Attach to analyser for waveform
-  const ctx = getAudioContext();
-  try {
-    const source = ctx.createMediaElementSource(audio);
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
-    source.connect(analyser);
-    analyser.connect(ctx.destination);
-    drawWaveform(analyser);
-  } catch (err) {
-    console.warn('Could not attach greeting to analyser', err);
-  }
-  audio.play().catch((err) => {
-    console.error('Greeting failed to play', err);
+// Filter control elements
+const filterButtons = document.querySelectorAll('.filter-btn');
+
+// Camera permission elements
+const cameraPermissionOverlay = document.getElementById('cameraPermissionOverlay');
+const requestCameraPermissionBtn = document.getElementById('requestCameraPermission');
+
+// Voice filter is always enabled - no toggle needed
+
+// Initialize filter controls
+function initializeFilterControls() {
+  filterButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const filterKey = e.target.dataset.filter;
+      
+      // Update active state
+      filterButtons.forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      
+      // Apply filter to camera
+      applyCameraFilter(filterKey);
+    });
   });
-  return audio; // so you can use .onended
+  
+  // Apply default filter
+  applyCameraFilter(currentFilter);
 }
 
-// === Waveform drawing ===
-function drawWaveform(analyser) {
-  const bufferLength = analyser.fftSize;
-  const dataArray = new Uint8Array(bufferLength);
-
-  function draw() {
-    animationId = requestAnimationFrame(draw);
-
-    analyser.getByteTimeDomainData(dataArray);
-
-    ctx.fillStyle = "#111";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "gold"; // wedding touch ✨
-
-    ctx.beginPath();
-
-    const sliceWidth = canvas.width * 1.0 / bufferLength;
-    let x = 0;
-
-    for (let i = 0; i < bufferLength; i++) {
-      const v = dataArray[i] / 128.0;
-      const y = v * canvas.height / 2;
-
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-
-      x += sliceWidth;
-    }
-
-    ctx.lineTo(canvas.width, canvas.height / 2);
-    ctx.stroke();
+// Initialize camera permission system
+function initializeCameraPermission() {
+  if (requestCameraPermissionBtn) {
+    requestCameraPermissionBtn.addEventListener('click', requestCameraPermission);
   }
-
-  draw();
 }
 
-function stopVisualizer() {
-  cancelAnimationFrame(animationId);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
+// Voice filter is always enabled - no initialization needed
 
-function getAudioContext() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioCtx.state === "suspended") {
-    audioCtx.resume();
-  }
-  return audioCtx;
-}
-
-// === Recording logic with Telephone Effect ===
-async function startRecording() {
-  const ctx = getAudioContext();
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const source = ctx.createMediaStreamSource(stream);
-
-  // Phone-like filters
-  const highPass = ctx.createBiquadFilter();
-  highPass.type = "highpass";
-  highPass.frequency.value = 300;
-
-  const lowPass = ctx.createBiquadFilter();
-  lowPass.type = "lowpass";
-  lowPass.frequency.value = 3400;
-
-  // Destination + analyser
-  const destination = ctx.createMediaStreamDestination();
-  analyser = ctx.createAnalyser();
-  analyser.fftSize = 2048;
-
-  source.connect(highPass);
-  highPass.connect(lowPass);
-  lowPass.connect(analyser);
-  lowPass.connect(destination);
-
-  // Pick supported codec for iOS
-  let options = { mimeType: "audio/webm" };
-  if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-    options = { mimeType: "audio/mp4" }; // fallback for iOS
-  }
-
-  mediaRecorder = new MediaRecorder(destination.stream, options);
-  audioChunks = [];
-  recordedBlob = null;
-  mediaRecorder.start();
-
-  mediaRecorder.addEventListener("dataavailable", e => {
-    audioChunks.push(e.data);
-  });
-
-  mediaRecorder.addEventListener("stop", () => {
-    const mimeType = mediaRecorder.mimeType || "audio/mp4";
-    recordedBlob = new Blob(audioChunks, { type: mimeType });
-    const audioUrl = URL.createObjectURL(recordedBlob);
-
-    audioPlayback.src = audioUrl;
-    // reveal playback and post controls
-    // audioPlayback.style.display = 'block';
-    // postControls.style.display = 'none';
-    uiState = 'ready';
-    actionBtn.textContent = '▶️ Preview';
-    // After audio is recorded, unlock name entry and show Save controls
-    if (nameSection) nameSection.style.display = 'block';
-    if (nameActions) nameActions.style.display = 'flex';
-  });
-
-  drawWaveform(analyser);
-
-  uiState = 'recording';
-  actionBtn.textContent = '⏹ Stop';
-}
-
-// === Event Listeners ===
-actionBtn.addEventListener('click', async () => {
-  const state = uiState || 'idle';
-  // Pause greeting video immediately on Start click
+// Voice filter functions for vintage phone effect (always enabled)
+function createVoiceFilter(ctx) {
+  
   try {
-    if (typeof greetingVideo !== 'undefined' && greetingVideo && !greetingVideo.paused) {
-      greetingVideo.pause();
-    }
-  } catch (_) { }
-
-  if (state === 'idle') {
-    // Play random greeting; after it ends, show selfie section (no auto-record)
-    const ctx = getAudioContext();
-    actionBtn.disabled = true;
-    actionBtn.textContent = '🔊 Lutfi Speaking...';
-    const audio = playRandomGreeting();
-    await ctx.resume();
-    audio.onended = () => {
-      // stop greeting waveform; hide video; show selfie section only (lock recording)
-      stopVisualizer();
-      if (greetingVideo) greetingVideo.style.display = 'none';
-      if (inlineSave) inlineSave.style.display = 'block';
-      if (nameSection) nameSection.style.display = 'none';
-      if (nameActions) nameActions.style.display = 'none';
-      startCamera();
-      actionBtn.disabled = true; // cannot record until selfie is taken
-      actionBtn.textContent = '🎙️ Start Recording';
-      uiState = 'awaiting_selfie';
-    };
-    uiState = 'playing_greeting';
-  } else if (state === 'recording') {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-    }
-    stopVisualizer();
-    // move to ready; actual UI changes are handled in recorder.stop handler
-  } else if (state === 'awaiting_recording') {
-    // User starts recording after selfie section is shown
-    startRecording();
-  } else if (state === 'awaiting_selfie') {
-    alert('Please take a selfie first.');
-  } else if (state === 'ready' || state === 'previewing') {
-    if (!recordedBlob) return;
-    // Always play from start; disable button during preview. No Pause state.
-    try { audioPlayback.currentTime = 0; } catch (_) { }
-    audioPlayback.play();
-    uiState = 'previewing';
-    actionBtn.disabled = true;
-    actionBtn.textContent = '▶️ Preview';
-  }
-});
-
-restartBtn.addEventListener('click', () => {
-  // reset UI to start state
-  location.reload();
-  // postControls.style.display = 'none';
-  // if (inlineSave) inlineSave.style.display = 'none';
-  // if (nameSection) nameSection.style.display = 'none';
-  // if (nameActions) nameActions.style.display = 'none';
-  // audioPlayback.removeAttribute('src');
-  // recordedBlob = null;
-  // audioPlayback.style.display = 'none';
-  // uiState = 'idle';
-  // actionBtn.textContent = '▶️ Start';
-});
-
-// === Inline Save Flow ===
-async function startCamera() {
-  try {
-    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    if (camera) {
-      camera.srcObject = cameraStream;
-    }
-  } catch (e) {
-    console.error('Failed to start camera', e);
-  }
-}
-
-function stopCamera() {
-  if (cameraStream) {
-    const tracks = cameraStream.getTracks();
-    tracks.forEach(t => t.stop());
-    cameraStream = null;
-  }
-  if (camera) {
-    try { camera.srcObject = null; } catch (_) { }
-  }
-}
-
-// (Selfie section is shown after greeting ends in the click handler above)
-
-// Removed Save/Send button flow; inline save shows after stop
-
-takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
-  if (!camera) return;
-  const video = camera;
-  // Use a centered square crop to match circular frame
-  const vw = video.videoWidth || 520;
-  const vh = video.videoHeight || 520;
-  const size = Math.min(vw, vh);
-  photoCanvas.width = size;
-  photoCanvas.height = size;
-  const pctx = photoCanvas.getContext('2d');
-  const sx = (vw - size) / 2;
-  const sy = (vh - size) / 2;
-  pctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
-  photoCanvas.toBlob((blob) => {
-    if (blob) {
-      capturedPhotoBlob = blob;
-      // Prefer IMG preview so custom styles apply
-      const url = URL.createObjectURL(blob);
-      if (photoPreview) {
-        photoPreview.src = url;
-        photoPreview.style.display = 'block';
-        // Ensure circular styling if desired
-        if (!photoPreview.style.borderRadius) photoPreview.style.borderRadius = '50%';
-        if (!photoPreview.style.aspectRatio) photoPreview.style.aspectRatio = '1 / 1';
-        if (!photoPreview.style.objectFit) photoPreview.style.objectFit = 'cover';
+    // Create audio processing chain for vintage phone effect
+    const source = ctx.createGain();
+    const lowPass = ctx.createBiquadFilter();
+    const highPass = ctx.createBiquadFilter();
+    const compressor = ctx.createDynamicsCompressor();
+    const bitcrusher = createBitcrusher(ctx);
+    const output = ctx.createGain();
+    
+    // Configure low-pass filter (muffled phone sound)
+    lowPass.type = 'lowpass';
+    lowPass.frequency.setValueAtTime(3400, ctx.currentTime); // Phone bandwidth
+    lowPass.Q.setValueAtTime(1, ctx.currentTime);
+    
+    // Configure high-pass filter (remove low frequencies)
+    highPass.type = 'highpass';
+    highPass.frequency.setValueAtTime(300, ctx.currentTime); // Phone frequency range
+    highPass.Q.setValueAtTime(0.5, ctx.currentTime);
+    
+    // Configure compressor for phone-like dynamics
+    compressor.threshold.setValueAtTime(-20, ctx.currentTime);
+    compressor.knee.setValueAtTime(10, ctx.currentTime);
+    compressor.ratio.setValueAtTime(4, ctx.currentTime);
+    compressor.attack.setValueAtTime(0.01, ctx.currentTime);
+    compressor.release.setValueAtTime(0.1, ctx.currentTime);
+    
+    // Connect the audio chain
+    source.connect(highPass);
+    highPass.connect(lowPass);
+    lowPass.connect(compressor);
+    compressor.connect(bitcrusher);
+    bitcrusher.connect(output);
+    
+    return {
+      input: source,
+      output: output,
+      disconnect: () => {
+        try { source.disconnect(); } catch (e) { }
+        try { highPass.disconnect(); } catch (e) { }
+        try { lowPass.disconnect(); } catch (e) { }
+        try { compressor.disconnect(); } catch (e) { }
+        try { bitcrusher.disconnect(); } catch (e) { }
+        try { output.disconnect(); } catch (e) { }
       }
-      // Hide canvas when using IMG preview
-      if (photoCanvas) photoCanvas.style.display = 'none';
-      // Hide camera feed
-      if (camera) camera.style.display = 'none';
-      if (retakePhotoBtn) retakePhotoBtn.disabled = false;
-      if (takePhotoBtn) takePhotoBtn.disabled = true;
-      stopCamera();
-      // Unlock recording after selfie is captured
-      actionBtn.disabled = false;
-      uiState = 'awaiting_recording';
-    }
-  }, 'image/png');
-});
+    };
+  } catch (e) {
+    console.warn('Voice filter creation failed:', e);
+    return null;
+  }
+}
 
-retakePhotoBtn && retakePhotoBtn.addEventListener('click', () => {
-  // Clear previous preview and restart camera
-  capturedPhotoBlob = null;
-  if (photoCanvas) photoCanvas.style.display = 'none';
-  if (photoPreview) { photoPreview.style.display = 'none'; photoPreview.removeAttribute('src'); }
-  if (retakePhotoBtn) retakePhotoBtn.disabled = true;
-  if (takePhotoBtn) takePhotoBtn.disabled = false;
-  startCamera();
-  // Lock recording again until selfie recaptured
-  actionBtn.disabled = true;
-  uiState = 'awaiting_selfie';
+// Create bitcrusher effect for digital phone quality
+function createBitcrusher(ctx) {
+  const bufferSize = 4096;
+  const bitDepth = 8; // Low bit depth for phone quality
+  const sampleRate = 8000; // Phone sample rate
+  
+  const processor = ctx.createScriptProcessor(bufferSize, 1, 1);
+  
+  processor.onaudioprocess = function(e) {
+    const input = e.inputBuffer.getChannelData(0);
+    const output = e.outputBuffer.getChannelData(0);
+    
+    for (let i = 0; i < input.length; i++) {
+      // Apply bitcrushing
+      let sample = input[i];
+      sample = Math.max(-1, Math.min(1, sample));
+      sample = Math.floor(sample * (Math.pow(2, bitDepth) - 1)) / (Math.pow(2, bitDepth) - 1);
+      
+      // Add slight distortion for phone quality
+      sample = Math.tanh(sample * 1.2) * 0.8;
+      
+      output[i] = sample;
+    }
+  };
+  
+  return processor;
+}
+
+// Apply voice filter to recorded audio blob (always enabled)
+async function applyVoiceFilterToBlob(audioBlob) {
+  
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    
+    // Create offline context for processing
+    const offlineCtx = new OfflineAudioContext(
+      audioBuffer.numberOfChannels,
+      audioBuffer.length,
+      audioBuffer.sampleRate
+    );
+    
+    // Create voice filter
+    const filter = createVoiceFilter(offlineCtx);
+    if (!filter) return audioBlob;
+    
+    // Create source and connect to filter
+    const source = offlineCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(filter.input);
+    filter.output.connect(offlineCtx.destination);
+    
+    // Render the processed audio
+    source.start();
+    const processedBuffer = await offlineCtx.startRendering();
+    
+    // Convert back to blob
+    const wavBlob = await audioBufferToWav(processedBuffer);
+    return wavBlob;
+    
+  } catch (e) {
+    console.warn('Voice filter processing failed:', e);
+    return audioBlob;
+  }
+}
+
+// Convert AudioBuffer to WAV blob
+async function audioBufferToWav(buffer) {
+  const length = buffer.length;
+  const numberOfChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const arrayBuffer = new ArrayBuffer(44 + length * numberOfChannels * 2);
+  const view = new DataView(arrayBuffer);
+  
+  // WAV header
+  const writeString = (offset, string) => {
+    for (let i = 0; i < string.length; i++) {
+      view.setUint8(offset + i, string.charCodeAt(i));
+    }
+  };
+  
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + length * numberOfChannels * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numberOfChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numberOfChannels * 2, true);
+  view.setUint16(32, numberOfChannels * 2, true);
+  view.setUint16(34, 16, true);
+  writeString(36, 'data');
+  view.setUint32(40, length * numberOfChannels * 2, true);
+  
+  // Convert audio data
+  let offset = 44;
+  for (let i = 0; i < length; i++) {
+    for (let channel = 0; channel < numberOfChannels; channel++) {
+      const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      offset += 2;
+    }
+  }
+  
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
+}
+
+let uiState = 'idle'; // idle | playing_greeting | recording | ready | previewing
+let currentState = "idle"; // idle | recording | stopped (local recorder state)
+let currentRecording = null; // { stream, sourceNode, analyser, vizController }
+let recordingStartTime = null;
+let recordingTimerInterval = null;
+let isPaused = false;
+
+/* Map of canvas -> viz controller so we can stop specific ones */
+const visualizers = new Map();
+
+/* ---------------- timer functions ---------------- */
+function startRecordingTimer() {
+  recordingStartTime = Date.now();
+  recordingTimerInterval = setInterval(updateTimer, 100);
+}
+
+function updateTimer() {
+  if (!recordingStartTime) return;
+  
+  const elapsed = Date.now() - recordingStartTime;
+  const seconds = Math.floor(elapsed / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  
+  const displaySeconds = (seconds % 60).toString().padStart(2, '0');
+  const displayMinutes = (minutes % 60).toString().padStart(2, '0');
+  const displayHours = hours.toString().padStart(2, '0');
+  
+  if (recordingTimer) {
+    recordingTimer.textContent = `${displayHours}:${displayMinutes}:${displaySeconds}`;
+  }
+}
+
+function stopRecordingTimer() {
+  if (recordingTimerInterval) {
+    clearInterval(recordingTimerInterval);
+    recordingTimerInterval = null;
+  }
+  recordingStartTime = null;
+  if (recordingTimer) {
+    recordingTimer.textContent = "00:00:00";
+  }
+}
+
+function startPreviewTimer() {
+  recordingStartTime = Date.now();
+  recordingTimerInterval = setInterval(updateTimer, 100);
+}
+
+function updateRecordingUI(state) {
+  if (state === "recording") {
+    // Show recording state
+    if (recordingIndicator) {
+      recordingIndicator.classList.add("recording");
+    }
+    if (recordingIndicator && recordingIndicator.parentElement) {
+      recordingIndicator.parentElement.classList.add("recording");
+    }
+    if (recordBtn) {
+      recordBtn.textContent = "⏹ Stop Recording";
+      recordBtn.classList.remove("idle", "preview", "playing");
+      recordBtn.classList.add("recording");
+    }
+  } else if (state === "idle") {
+    // Show idle state
+    if (recordingIndicator) {
+      recordingIndicator.classList.remove("recording");
+    }
+    if (recordingIndicator && recordingIndicator.parentElement) {
+      recordingIndicator.parentElement.classList.remove("recording");
+    }
+    if (recordBtn) {
+      recordBtn.textContent = "🎤 Start Recording";
+      recordBtn.classList.remove("recording", "preview", "playing");
+      recordBtn.classList.add("idle");
+    }
+  } else if (state === "stopped") {
+    // Show stopped state (ready to preview)
+    if (recordingIndicator) {
+      recordingIndicator.classList.remove("recording");
+    }
+    if (recordingIndicator && recordingIndicator.parentElement) {
+      recordingIndicator.parentElement.classList.remove("recording");
+    }
+    if (recordBtn) {
+      recordBtn.textContent = "▶️ Preview Recording";
+      recordBtn.classList.remove("recording", "idle", "playing");
+      recordBtn.classList.add("preview");
+    }
+  } else if (state === "previewing" || state === "playing") {
+    // Show preview state
+    if (recordingIndicator && recordingIndicator.parentElement) {
+      recordingIndicator.parentElement.classList.add("recording"); // Show pulsing during preview
+    }
+    if (recordBtn) {
+      recordBtn.textContent = "⏸️ Stop Preview";
+      recordBtn.classList.remove("recording", "idle", "preview");
+      recordBtn.classList.add("playing");
+    }
+  }
+}
+
+
+// Initialize audio context on first user interaction
+document.addEventListener('touchstart', initializeAudioContext, { once: true });
+document.addEventListener('click', initializeAudioContext, { once: true });
+
+// v3 flow
+/*
+  STEP 1: Play greeting audio and guest record wish audio
+*/
+
+window.addEventListener('load', () => {
+  // Ensure idle waveform is drawn when page loads
+  drawIdleWaveform(canvas2);
+  
+  // Initialize filter controls
+  initializeFilterControls();
+  
+  // Initialize lightbox
+  initializeLightbox();
+  
+  // Initialize camera permission
+  initializeCameraPermission();
+  
+  let isClicked = false;
+  actionBtn.addEventListener('click', () => {
+    if (isClicked) return; // ignore further clicks
+    isClicked = true;
+    setTimeout(() => {
+      const audio = playRandomGreeting();
+      splashScreenSection.classList.add('fade-out');
+      // Wait for the fade animation to finish before hiding it
+      setTimeout(() => {
+        bridesGreetingSection.style.display = 'flex';
+        splashScreenSection.style.display = 'none';
+        // const audio = playRandomGreeting();
+        audio.onended = () => {
+          bridesGreetingSection.style.display = 'none';
+          guestWishesSection.style.display = 'flex';
+        };
+      }, 3000); // match the transition duration in CSS
+    }, 2000);
+    setTimeout(() => (isClicked = false), 3000);
+  });
+
+
+  // Save recording functionality
+  saveRecordingBtn && saveRecordingBtn.addEventListener('click', async () => {
+    if (!recordedBlob) {
+      alert('No recording to save!');
+      return;
+    }
+
+    try {
+      const audioUrl = URL.createObjectURL(recordedBlob);
+      finalPreviewAudio.src = audioUrl;
+    } catch (_) { }
+
+    // Wire overlay play with visualizer
+    ; (function wireOverlayPlayback() {
+      let overlayCtx = null;
+      let overlayAnalyser = null;
+      let rafId = null;
+      let isPlaying = false;
+      function draw() {
+        rafId = requestAnimationFrame(draw);
+        if (!overlayAnalyser) return;
+        const bufferLength = overlayAnalyser.fftSize;
+        const dataArray = new Uint8Array(bufferLength);
+        overlayAnalyser.getByteTimeDomainData(dataArray);
+        const ctx2d = finalPreviewCanvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = finalPreviewCanvas.getBoundingClientRect();
+        finalPreviewCanvas.width = rect.width * dpr;
+        finalPreviewCanvas.height = rect.height * dpr;
+        ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // Clear canvas (transparent background)
+        ctx2d.clearRect(0, 0, rect.width, rect.height);
+        ctx2d.lineWidth = 2;
+        ctx2d.strokeStyle = '#FFD700';
+        ctx2d.beginPath();
+        const sliceWidth = rect.width / bufferLength;
+        let x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const v = dataArray[i] / 128.0;
+          const y = (v * rect.height) / 2;
+          if (i === 0) ctx2d.moveTo(x, y); else ctx2d.lineTo(x, y);
+          x += sliceWidth;
+        }
+        ctx2d.lineTo(rect.width, rect.height / 2);
+        ctx2d.stroke();
+      }
+      function ensureAnalyser() {
+        if (overlayCtx) return;
+        try {
+          overlayCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const src = overlayCtx.createMediaElementSource(finalPreviewAudio);
+          overlayAnalyser = overlayCtx.createAnalyser();
+          overlayAnalyser.fftSize = 2048;
+          src.connect(overlayAnalyser);
+          overlayAnalyser.connect(overlayCtx.destination);
+          draw();
+        } catch (e) { /* ignore */ }
+      }
+      if (finalPreviewPlayBtn && !finalPreviewPlayBtn.__wired) {
+        finalPreviewPlayBtn.__wired = true;
+        finalPreviewPlayBtn.onclick = () => {
+          if (isPlaying) {
+            finalPreviewAudio.pause();
+            finalPreviewPlayBtn.textContent = '▶️ Play';
+            finalPreviewPlayBtn.classList.remove('playing');
+            isPlaying = false;
+            if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+          } else {
+            finalPreviewAudio.play().then(() => {
+              ensureAnalyser();
+              finalPreviewPlayBtn.textContent = '⏸️ Pause';
+              finalPreviewPlayBtn.classList.add('playing');
+              isPlaying = true;
+            }).catch(() => { });
+          }
+        };
+        finalPreviewAudio.onended = () => {
+          finalPreviewPlayBtn.textContent = '▶️ Play';
+          finalPreviewPlayBtn.classList.remove('playing');
+          isPlaying = false;
+          if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        };
+      }
+    })();
+
+    // Display the camera section
+    bridesGreetingSection.style.display = 'none';
+    guestWishesSection.style.display = 'none';
+    selfieSection.style.display = "flex";
+    if (selfieSection) {
+      startCamera();
+    }
+  });
+
+  /*
+    STEP 2: Take selfie and enter guest name.
+  */
+
+  takePhotoBtn && takePhotoBtn.addEventListener('click', () => {
+    if (!camera || !cameraPermissionGranted) return;
+    const video = camera;
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+
+    // Trigger flash effect
+    const flashOverlay = document.getElementById('flashOverlay');
+    if (flashOverlay) {
+      flashOverlay.classList.add('flash');
+      setTimeout(() => {
+        flashOverlay.classList.remove('flash');
+      }, 150);
+    }
+
+    photoCanvas.width = vw;
+    photoCanvas.height = vh;
+    const pctx = photoCanvas.getContext('2d');
+    
+    // Draw the video image first
+    pctx.save();
+    pctx.scale(-1, 1);
+    pctx.drawImage(video, -vw, 0, vw, vh);
+    pctx.restore();
+    
+    // Apply filter to captured photo
+    const imageData = pctx.getImageData(0, 0, vw, vh);
+    console.log('Image data captured, size:', imageData.data.length, 'pixels:', vw, 'x', vh);
+    
+    let filteredImageData;
+    
+    if (currentFilter === 'none') {
+      // No filter applied, use original image data
+      filteredImageData = imageData;
+      console.log('No filter applied, using original image data');
+    } else {
+      // Apply the selected filter
+      console.log('Applying filter:', currentFilter);
+      filteredImageData = applyPhotoFilter(imageData, currentFilter);
+      console.log('Filter applied successfully');
+    }
+    
+    // Clear canvas and draw the filtered image
+    pctx.clearRect(0, 0, vw, vh);
+    pctx.putImageData(filteredImageData, 0, 0);
+    
+    photoCanvas.toBlob((blob) => {
+      if (blob) {
+        console.log('Photo captured successfully, blob size:', blob.size);
+        capturedPhotoBlob = blob;
+        const url = URL.createObjectURL(blob);
+        console.log('Generated URL:', url);
+        
+        if (finalPreviewPhoto) {
+          finalPreviewPhoto.onload = () => {
+            console.log('Final preview photo loaded successfully');
+          };
+          finalPreviewPhoto.onerror = (e) => {
+            console.error('Error loading final preview photo:', e);
+          };
+          finalPreviewPhoto.src = url;
+          // finalPreviewPhoto.style.display = 'block';
+        }
+        
+        if (photoCanvas) photoCanvas.style.display = 'none';
+        if (camera) camera.style.display = 'none';
+        if (retakePhotoBtn) retakePhotoBtn.disabled = false;
+        if (takePhotoBtn) takePhotoBtn.disabled = true;
+        stopCamera();
+      } else {
+        console.error('Failed to create photo blob');
+      }
+    }, 'image/png', 0.95);
+
+
+    /* STEP 3: Flashing effect and polaroid appear with image taken. */
+    if (finalPreviewOverlay) {
+      // Add fade-out transition
+      selfieSection.style.transition = 'opacity 0.5s ease-out';
+      selfieSection.style.opacity = '0';
+      
+      setTimeout(() => {
+        selfieSection.style.display = "none";
+        finalPreviewOverlay.style.display = 'flex';
+        finalPreviewOverlay.style.opacity = '0';
+        finalPreviewOverlay.style.transition = 'opacity 0.5s ease-in';
+        setTimeout(() => {
+          finalPreviewOverlay.style.opacity = '1';
+        }, 50);
+      }, 500);
+      // Populate overlay preview (mirror preview.php look & data)
+      try {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        finalPreviewDate.textContent = `${yyyy}-${mm}-${dd}`;
+      } catch (_) { }
+      try {
+        if (capturedPhotoBlob) {
+          const url = URL.createObjectURL(capturedPhotoBlob);
+          finalPreviewPhoto.src = url;
+        } else if (photoPreview && photoPreview.src) {
+          finalPreviewPhoto.src = photoPreview.src;
+        } else {
+          finalPreviewPhoto.src = '/vite.svg';
+        }
+      } catch (_) { }
+
+      /* STEP 4: User entering name and submit? */
+      const displayName = document.getElementById("displayName");
+      const hiddenInput = document.getElementById("hiddenNameInput");
+
+      function focusInput() {
+        hiddenInput.focus();
+        scrollToNameInput();
+      }
+
+      function scrollToNameInput() {
+        // Scroll to make the input visible when keyboard opens on mobile
+        setTimeout(() => {
+          const displayNameElement = document.getElementById("displayName");
+          if (displayNameElement) {
+            // Get the current viewport height
+            const viewportHeight = window.innerHeight;
+            
+            // Calculate the optimal scroll position
+            // Position the name input in the upper third of the visible area
+            const targetPosition = displayNameElement.offsetTop - (viewportHeight * 0.3);
+            
+            window.scrollTo({
+              top: Math.max(0, targetPosition),
+              behavior: 'smooth'
+            });
+          }
+        }, 150); // Slightly longer delay to ensure keyboard is fully open
+      }
+
+      // When user clicks or taps the name area
+      displayName.addEventListener("click", focusInput);
+
+      // Auto focus when page loads (optional)
+      window.addEventListener("load", () => {
+        hiddenInput.focus();
+      });
+
+      // Add scroll behavior when hidden input is focused
+      hiddenInput.addEventListener("focus", scrollToNameInput);
+
+      // Typing logic
+      hiddenInput.addEventListener("input", () => {
+        const text = hiddenInput.value.trim();
+        displayName.childNodes[0].textContent = text || "Your Name";
+      });
+
+      // Handle Enter key (optional — to blur input)
+      hiddenInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          hiddenInput.blur();
+        }
+      });
+
+      // Handle window resize (keyboard show/hide, orientation change)
+      let resizeTimeout;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          // If the input is focused and we're on mobile, adjust scroll position
+          if (hiddenInput === document.activeElement && window.innerWidth <= 768) {
+            scrollToNameInput();
+          }
+        }, 300);
+      });
+
+      submitNameBtn && submitNameBtn.addEventListener('click', async () => {
+        nameSection.style.display = 'none';
+        guestWishesSection.style.display = 'flex';
+        // we don't call drawWaveform here — visualizers are tied to actual analysers
+      });
+    }
+  });
 });
 
 backBtn && backBtn.addEventListener('click', () => {
-  // Return to post controls
   stopCamera();
-  if (inlineSave) inlineSave.style.display = 'none';
-  // postControls.style.display = 'flex';
 });
+
+recordBtn && recordBtn.addEventListener("click", () => {
+  if (currentState === "idle") {
+    startRecording();
+  } else if (currentState === "recording") {
+    stopRecording();
+  } else if (currentState === "stopped") {
+    previewRecording();
+  } else if (currentState === "previewing" || currentState === "playing") {
+    // Stop preview and return to stopped state
+    if (audioPlaybackGuest && !audioPlaybackGuest.paused) {
+      audioPlaybackGuest.pause();
+    }
+    stopVisualizer(canvas2);
+    stopRecordingTimer();
+    currentState = "stopped";
+    updateRecordingUI("stopped");
+  }
+});
+
 
 submitBtn && submitBtn.addEventListener('click', async () => {
   if (!recordedBlob) return;
+  console.log("submit");
+
   const form = new FormData();
   form.append('guest_name', (guestName && guestName.value) || '');
-  // auto-fill today's date in YYYY-MM-DD
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, '0');
   const dd = String(today.getDate()).padStart(2, '0');
   form.append('event_date', `${yyyy}-${mm}-${dd}`);
-  // Attach audio
+
   const audioExt = (recordedBlob.type && recordedBlob.type.includes('mp4')) ? 'mp4' : 'webm';
   form.append('audio', recordedBlob, `message.${audioExt}`);
-  // Attach photo if available
+
   if (capturedPhotoBlob) {
     form.append('photo', capturedPhotoBlob, 'selfie.png');
   }
@@ -360,13 +931,13 @@ submitBtn && submitBtn.addEventListener('click', async () => {
     });
     const data = await res.json().catch(() => ({ status: 'error', message: 'Invalid server response' }));
     if (data.status === 'success') {
-      // Stop media and clear UI, then show Thank You screen centered
       try { stopCamera(); } catch (_) { }
       try { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); } catch (_) { }
-      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;">\
-        <div>\
-          <h1 style="font-family: \'Sacramento\', cursive; font-size:3rem; margin:0 0 .5rem;">Thank you! ❤️</h1>\
-          <p>Your message has been saved.</p>\
+      const html = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;background:#000000;color:white;font-family:system-ui,-apple-system,sans-serif;">\
+        <div style="background:rgba(255,255,255,0.05);padding:4rem 3rem;border-radius:16px;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);box-shadow:0 20px 40px rgba(0,0,0,0.5);max-width:500px;width:90%;">\
+          <h1 style="font-family:\'Sacramento\',cursive;font-size:3rem;margin:0 0 1.5rem;font-weight:400;letter-spacing:1px;">Thank You</h1>\
+          <p style="font-size:1.1rem;margin:0 0 2rem;opacity:0.8;line-height:1.6;font-weight:300;">Your message has been successfully saved to our guestbook.</p>\
+          <div style="width:60px;height:2px;background:linear-gradient(90deg, #007AFF, #5856D6);margin:0 auto;border-radius:1px;"></div>\
         </div>\
       </div>';
       document.body.innerHTML = html;
@@ -380,43 +951,875 @@ submitBtn && submitBtn.addEventListener('click', async () => {
   }
 });
 
-// === Playback waveform ===
-audioPlayback.addEventListener("play", () => {
+restartBtn && restartBtn.addEventListener('click', () => {
+  console.log("restart button works");
+  location.reload();
+});
+
+// Restart recording functionality
+restartRecordingBtn && restartRecordingBtn.addEventListener('click', () => {
+  // Reset state
+  currentState = "idle";
+  stopRecordingTimer();
+  updateRecordingUI("idle");
+
+  // Hide post controls
+  if (postControls) {
+    postControls.style.display = "none";
+  }
+
+  // Clear previous recording
+  recordedBlob = null;
+  audioChunks = [];
+
+  // Clear audio playback
+  if (audioPlaybackGuest) {
+    audioPlaybackGuest.src = "";
+  }
+
+  // Stop any existing visualizer
+  stopVisualizer(canvas2);
+
+  // Start new recording
+  startRecording();
+});
+
+// Edit button closes overlay to make changes
+editEntryBtn && editEntryBtn.addEventListener('click', () => {
+  if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'none';
+});
+
+// Retake photo functionality
+retakePhotoText && retakePhotoText.addEventListener('click', () => {
+  if (finalPreviewOverlay) {
+    finalPreviewOverlay.style.display = 'none';
+  }
+  
+  // Reset photo capture state
+  if (photoCanvas) photoCanvas.style.display = 'none';
+  if (camera) camera.style.display = 'block'; // Make sure camera is visible
+  if (takePhotoBtn) takePhotoBtn.disabled = false;
+  if (retakePhotoBtn) retakePhotoBtn.disabled = true;
+  
+  // Clear captured photo
+  capturedPhotoBlob = null;
+  
+  // Show camera section again
+  if (selfieSection) {
+    selfieSection.style.display = 'flex';
+    selfieSection.style.opacity = '1';
+    selfieSection.style.transition = 'opacity 0.5s ease-in';
+  }
+  
+  // Restart camera (this will show permission overlay if needed)
+  startCamera();
+});
+
+// Final submit inside overlay
+submitFinalBtn && submitFinalBtn.addEventListener('click', async () => {
+  if (!recordedBlob) return;
+  try {
+    const form = new FormData();
+    const hiddenNameInput = document.getElementById("hiddenNameInput");
+    const guestName = hiddenNameInput ? hiddenNameInput.value.trim() : '';
+    console.log('Submitting guest name:', guestName);
+    form.append('guest_name', guestName);
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    form.append('event_date', `${yyyy}-${mm}-${dd}`);
+    const audioExt = (recordedBlob.type && recordedBlob.type.includes('mp4')) ? 'mp4' : 'webm';
+    form.append('audio', recordedBlob, `message.${audioExt}`);
+    if (capturedPhotoBlob) { form.append('photo', capturedPhotoBlob, 'selfie.png'); }
+    const res = await fetch('/save_entry.php', { method: 'POST', body: form });
+    const data = await res.json().catch(() => ({ status: 'error', message: 'Invalid server response' }));
+    if (data.status === 'success') {
+      if (finalPreviewOverlay) finalPreviewOverlay.style.display = 'none';
+      // Show gallery instead of thank you page
+      await showGallery();
+    } else {
+      alert('Failed to save. Please try again.');
+    }
+  } catch (e) {
+    console.error('Save error', e);
+    alert('Save error. Please check your connection.');
+  }
+});
+
+/* ---------------- guest audio element playback handlers (optional) -------------
+   We manage playback visualizer via previewRecording(), so no global 'play' listener is necessary.
+   If you want playback via normal controls to also show waveform, you could wire it here.
+----------------------------------------------------------------------------*/
+
+
+/* ---------------- cleanup on page unload ---------------- */
+window.addEventListener('beforeunload', () => {
+  try {
+    if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
+  } catch (e) { }
+});
+
+
+/* ensure canvases have reasonable pixel size (DPR handling) */
+function fitCanvasToDisplaySize(canvas) {
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const width = Math.max(1, Math.round(rect.width * dpr));
+  const height = Math.max(1, Math.round(rect.height * dpr));
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    // scale so drawing uses CSS pixels coordinates
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+}
+
+/* ---------------- audio context helper ---------------- */
+function getAudioContext() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
-  // Create the MediaElementSource only once for this element
-  if (!playbackSourceNode) {
+  return audioCtx;
+}
+
+/* ---------------- waveform drawing ----------------
+   drawWaveform returns a controller { stop() } which cancels RAF
+*/
+function drawWaveform(analyserNode, targetCanvas) {
+  if (!analyserNode || !targetCanvas) return null;
+
+  // stop existing visualizer for this canvas
+  const existing = visualizers.get(targetCanvas);
+  if (existing && typeof existing.stop === 'function') existing.stop();
+
+  fitCanvasToDisplaySize(targetCanvas);
+
+  const ctx = targetCanvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const width = targetCanvas.width / dpr;   // CSS pixel width
+  const height = targetCanvas.height / dpr; // CSS pixel height
+
+  // Use frequencyBinCount (half of fftSize) for sensible sample count, but
+  // time domain expects a Uint8Array sized to fftSize, so use analyser.fftSize
+  const bufferLength = analyserNode.fftSize;
+  const dataArray = new Uint8Array(bufferLength);
+
+  let rafId = null;
+
+  function render() {
+    rafId = requestAnimationFrame(render);
+
+    analyserNode.getByteTimeDomainData(dataArray);
+
+    // Clear canvas (transparent background)
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "gold";
+    ctx.beginPath();
+
+    const sliceWidth = width / bufferLength;
+    let x = 0;
+
+    for (let i = 0; i < bufferLength; i++) {
+      const v = dataArray[i] / 128.0; // normalize 0..2
+      const y = v * height / 2;      // scale to canvas
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.lineTo(width, height / 2);
+    ctx.stroke();
+  }
+
+  render();
+
+  const controller = {
+    stop() {
+      if (rafId) cancelAnimationFrame(rafId);
+      // clear canvas area (CSS pixel coords)
+      ctx.clearRect(0, 0, width, height);
+      visualizers.delete(targetCanvas);
+    }
+  };
+
+  visualizers.set(targetCanvas, controller);
+  return controller;
+}
+
+
+function drawIdleWaveform(targetCanvas) {
+  if (!targetCanvas) {
+    console.log("canvas missing");
+    return;
+  }
+
+  console.log("draw idle waveform for canvas:", targetCanvas.id);
+  const ctx = targetCanvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const width = targetCanvas.clientWidth * dpr;
+  const height = targetCanvas.clientHeight * dpr;
+
+  console.log("Canvas dimensions:", { width, height, clientWidth: targetCanvas.clientWidth, clientHeight: targetCanvas.clientHeight });
+
+  // Resize canvas for sharp rendering
+  targetCanvas.width = width;
+  targetCanvas.height = height;
+  ctx.scale(dpr, dpr);
+
+  // Clear canvas (transparent background)
+  ctx.clearRect(0, 0, targetCanvas.clientWidth, targetCanvas.clientHeight);
+
+  // Create a straight yellow line in the center
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "gold";
+  ctx.beginPath();
+
+  const midY = targetCanvas.clientHeight / 2;
+
+  // Draw straight line from left to right
+  ctx.moveTo(0, midY);
+  ctx.lineTo(targetCanvas.clientWidth, midY);
+
+  ctx.stroke();
+  console.log("Idle line drawn at y:", midY);
+}
+
+/* Stops visualizer for a specific canvas (or both if no arg) */
+function stopVisualizer(target) {
+  if (target) {
+    const v = visualizers.get(target);
+    if (v && typeof v.stop === 'function') v.stop();
+    // Restore idle line for visualizer2 when stopping
+    if (target === canvas2) {
+      drawIdleWaveform(canvas2);
+    }
+    return;
+  }
+  // stop both if present
+  if (visualizers.size === 0) return;
+  for (const [c, controller] of visualizers.entries()) {
+    try { controller.stop(); } catch (e) { /* ignore */ }
+  }
+}
+
+
+/* ---------------- greetings (random) ---------------- */
+const greetings = [
+  "/voice-note/voice4-effect.wav",
+];
+
+const lyrics = [
+  { time: 0, text: "Hi guyss!" },
+  { time: 3, text: "Thankyou sebab datang kenduri kitaorang" },
+  { time: 6, text: "Appreciate sangat" },
+  { time: 7, text: "And..." },
+  { time: 10, text: "Hopefully you guys enjoy the weddings" },
+  { time: 12, text: "And please leave some message for us" },
+  { time: 14, text: "Okay?" },
+  { time: 15, text: "Bye-Bye!" },
+  { time: 16, text: "" }
+];
+
+let currentLine = -1;
+function showLyric(text) {
+  const box = document.getElementById("lyricsBox");
+  if (!box) return;
+  box.classList.add("fade-out");
+  setTimeout(() => {
+    box.textContent = text;
+    box.classList.remove("fade-out");
+  }, 400);
+}
+
+function playRandomGreeting() {
+  const randomIndex = Math.floor(Math.random() * greetings.length);
+  const url = greetings[randomIndex];
+  const audio = new Audio(url);
+  audio.crossOrigin = 'anonymous';
+
+  audio.onerror = (e) => {
+    console.error('Greeting failed to load', url, e);
+  };
+
+  // attach greeting audio to an analyser and visualizer on the greeting canvas
+  try {
+    const ctx = getAudioContext();
+    const source = ctx.createMediaElementSource(audio);
+    const greetAnalyser = ctx.createAnalyser();
+    greetAnalyser.fftSize = 2048;
+
+    // connect source -> analyser -> destination (so user hears it)
+    source.connect(greetAnalyser);
+    greetAnalyser.connect(ctx.destination);
+
+    // draw on greeting canvas
+    drawWaveform(greetAnalyser, canvas);
+  } catch (err) {
+    console.warn('Could not attach greeting to analyser', err);
+  }
+
+  // reset lyric tracking
+  currentLine = -1;
+  const box = document.getElementById("lyricsBox");
+  if (box) box.textContent = "";
+
+  audio.addEventListener("timeupdate", () => {
+    const current = audio.currentTime;
+    for (let i = lyrics.length - 1; i >= 0; i--) {
+      if (current >= lyrics[i].time) {
+        if (currentLine !== i) {
+          currentLine = i;
+          showLyric(lyrics[i].text);
+        }
+        break;
+      }
+    }
+  });
+
+  audio.onended = () => {
+    const box = document.getElementById("lyricsBox");
+    if (box) box.textContent = "";
+    // stop greeting visualizer
+    stopVisualizer(canvas);
+  };
+
+  audio.play().catch(err => {
+    console.error('Greeting failed to play', err);
+  });
+
+  return audio;
+}
+
+/* ---------------- recording lifecycle ---------------- */
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const ctx = getAudioContext();
+
+    // create analyser and source node for visualiser (do NOT connect to destination to avoid echo)
+    const sourceNode = ctx.createMediaStreamSource(stream);
+    const micAnalyser = ctx.createAnalyser();
+    micAnalyser.fftSize = 2048;
+
+    // Create voice filter for vintage phone effect
+    const voiceFilter = createVoiceFilter(ctx);
+    if (voiceFilter) {
+      // Connect through voice filter
+      sourceNode.connect(voiceFilter.input);
+      voiceFilter.output.connect(micAnalyser);
+      voiceFilterNodes = voiceFilter;
+    } else {
+      // Fallback to direct connection
+      sourceNode.connect(micAnalyser);
+    }
+
+    // draw waveform on the guest canvas during recording
+    const vizController = drawWaveform(micAnalyser, canvas2);
+
+    // store for cleanup
+    currentRecording = { stream, sourceNode, analyser: micAnalyser, vizController, voiceFilter };
+
+    // Decide best supported audio mime type (iOS Safari prefers AAC in MP4)
+    if (!selectedAudioMimeType) {
+      const candidates = [
+        'audio/mp4;codecs=mp4a.40.2', // AAC in MP4 container
+        'audio/mp4',                   // generic MP4
+        'audio/webm;codecs=opus',     // Opus in WebM
+        'audio/webm'                   // generic WebM
+      ];
+      selectedAudioMimeType = candidates.find(t => {
+        try { return window.MediaRecorder && MediaRecorder.isTypeSupported(t); } catch (_) { return false; }
+      }) || '';
+    }
+
+    // setup MediaRecorder with preferred type if available
     try {
-      playbackSourceNode = audioCtx.createMediaElementSource(audioPlayback);
+      mediaRecorder = selectedAudioMimeType
+        ? new MediaRecorder(stream, { mimeType: selectedAudioMimeType })
+        : new MediaRecorder(stream);
+    } catch (err) {
+      // Fallback without mimeType
+      mediaRecorder = new MediaRecorder(stream);
+    }
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      // Use the recorder's mimeType if available, else fall back to selection or webm
+      const blobType = (mediaRecorder && mediaRecorder.mimeType) || selectedAudioMimeType || 'audio/webm';
+      const originalBlob = new Blob(audioChunks, { type: blobType });
+      
+      // Apply voice filter to the recorded audio
+      try {
+        recordedBlob = await applyVoiceFilterToBlob(originalBlob);
+        console.log('Voice filter applied to recording');
+      } catch (e) {
+        console.warn('Voice filter failed, using original audio:', e);
+        recordedBlob = originalBlob;
+      }
+      
+      const audioUrl = URL.createObjectURL(recordedBlob);
+
+      // put recorded audio into guest playback element
+      if (audioPlaybackGuest) {
+        audioPlaybackGuest.src = audioUrl;
+        try { audioPlaybackGuest.load(); } catch (_) { }
+      }
+    };
+
+    mediaRecorder.start();
+
+    currentState = "recording";
+    startRecordingTimer();
+    updateRecordingUI("recording");
+  } catch (err) {
+    console.error("Mic error:", err);
+  }
+}
+
+function stopRecording() {
+  // stop MediaRecorder (this triggers onstop)
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
+
+  // cleanup audio nodes and tracks
+  if (currentRecording) {
+    try { currentRecording.sourceNode.disconnect(); } catch (e) { }
+    try { currentRecording.analyser.disconnect(); } catch (e) { }
+    try { 
+      if (currentRecording.voiceFilter && currentRecording.voiceFilter.disconnect) {
+        currentRecording.voiceFilter.disconnect();
+      }
+    } catch (e) { }
+    try {
+      currentRecording.stream.getTracks().forEach(t => t.stop());
+    } catch (e) { }
+    if (currentRecording.vizController && typeof currentRecording.vizController.stop === 'function') {
+      currentRecording.vizController.stop();
+    }
+    currentRecording = null;
+  }
+
+  // set state to stopped (ready to preview)
+  currentState = "stopped";
+  stopRecordingTimer();
+  updateRecordingUI("stopped");
+
+  // show restart and save buttons
+  if (postControls) {
+    postControls.style.display = "flex";
+  }
+}
+
+/* preview the last recorded audio with waveform */
+function previewRecording() {
+  if (!audioPlaybackGuest || !audioPlaybackGuest.src) {
+    // nothing recorded; reset
+    currentState = "idle";
+    recordBtn.textContent = "🎤 Start";
+    recordBtn.classList.remove("preview");
+    recordBtn.classList.add("idle");
+    return;
+  }
+  // iOS Safari requires user interaction to start audio context
+  const ctx = getAudioContext();
+
+  // Ensure audio context is running on iOS
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(() => {
+      setupAudioPlayback();
+    }).catch(err => {
+      console.warn('Could not resume audio context:', err);
+      // Fallback: play without visualizer
+      audioPlaybackGuest.play().catch(playErr => {
+        console.error('Audio play failed:', playErr);
+      });
+    });
+  } else {
+    setupAudioPlayback();
+  }
+
+  function setupAudioPlayback() {
+    // create MediaElementSource only once for this guest playback element
+    if (!playbackSourceNode) {
+      try {
+        playbackSourceNode = ctx.createMediaElementSource(audioPlaybackGuest);
+      } catch (e) {
+        console.warn("Could not create MediaElementSource for guest playback", e);
+        // fallback: just play the audio without waveform
+        audioPlaybackGuest.play().catch(playErr => {
+          console.error('Audio play failed:', playErr);
+        });
+        return;
+      }
+    }
+
+    // disconnect previous analyser if present
+    try {
+      if (playbackAnalyser) {
+        playbackSourceNode.disconnect(playbackAnalyser);
+        playbackAnalyser.disconnect(ctx.destination);
+        // also stop any visualizer tied to canvas2
+        stopVisualizer(canvas2);
+      }
+    } catch (e) { /* ignore */ }
+
+    // create a fresh analyser for playback
+    playbackAnalyser = ctx.createAnalyser();
+    playbackAnalyser.fftSize = 2048;
+    try {
+      playbackSourceNode.connect(playbackAnalyser);
+      playbackAnalyser.connect(ctx.destination);
     } catch (e) {
-      console.error('Failed to create MediaElementSource for playback', e);
-      return;
+      console.warn('Playback graph connection issue', e);
+    }
+
+    // draw waveform while previewing on guest canvas (canvas2)
+    const viz = drawWaveform(playbackAnalyser, canvas2);
+
+    // play with iOS compatibility
+    const playPromise = audioPlaybackGuest.play();
+
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        // Audio started successfully
+        currentState = "previewing";
+        updateRecordingUI("previewing");
+        
+        // Start timer for preview
+        startPreviewTimer();
+      }).catch(err => {
+        console.error('Playback failed', err);
+        // stop visualizer if play fails
+        if (viz && typeof viz.stop === 'function') viz.stop();
+        // Reset button state
+        currentState = "stopped";
+        updateRecordingUI("stopped");
+      });
+    }
+
+    // when finished, stop visualizer and show preview again
+    audioPlaybackGuest.onended = () => {
+      if (viz && typeof viz.stop === 'function') viz.stop();
+      stopRecordingTimer();
+      currentState = "stopped";
+      updateRecordingUI("stopped");
+    };
+  }
+}
+
+/* ---------------- gallery functions ---------------- */
+async function showGallery() {
+  if (!gallerySection) return;
+  
+  try {
+    // Show gallery section
+    gallerySection.style.display = 'flex';
+    gallerySection.style.opacity = '0';
+    gallerySection.style.transition = 'opacity 0.5s ease-in';
+    
+    // Load gallery data
+    await loadGalleryData();
+    
+    // Fade in
+    setTimeout(() => {
+      gallerySection.style.opacity = '1';
+    }, 50);
+    
+  } catch (error) {
+    console.error('Error showing gallery:', error);
+  }
+}
+
+async function loadGalleryData() {
+  try {
+    const response = await fetch('/get_gallery.php');
+    const data = await response.json();
+    
+    if (data.status === 'success') {
+      renderGallery(data.entries);
+      if (galleryCount) {
+        galleryCount.textContent = data.count;
+      }
+    } else {
+      console.error('Failed to load gallery:', data.message);
+    }
+  } catch (error) {
+    console.error('Error loading gallery data:', error);
+  }
+}
+
+function renderGallery(entries) {
+  if (!polaroidGrid) return;
+  
+  polaroidGrid.innerHTML = '';
+  
+  // Update gallery images array for lightbox
+  updateGalleryImages(entries);
+  
+  entries.forEach((entry, index) => {
+    const polaroidItem = document.createElement('div');
+    polaroidItem.className = 'polaroid-item';
+    
+    // Check if photo exists, otherwise show placeholder
+    const photoSrc = entry.photo && entry.photo.trim() !== '' ? entry.photo : '';
+    const photoElement = photoSrc ? 
+      `<img class="polaroid-photo" src="${photoSrc}" alt="${entry.guest_name}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />` :
+      '';
+    
+    const placeholderElement = photoSrc ? 
+      `<div class="polaroid-photo" style="display:none; background:#e0e0e0; align-items:center; justify-content:center; color:#999; font-size:0.9rem;">No Image</div>` :
+      `<div class="polaroid-photo" style="background:#e0e0e0; display:flex; align-items:center; justify-content:center; color:#999; font-size:0.9rem;">No Image</div>`;
+    
+    polaroidItem.innerHTML = `
+      ${photoElement}
+      ${placeholderElement}
+      <div class="polaroid-info">
+        <div class="guest-name">${entry.guest_name || 'Guest'}</div>
+        <div class="guest-date">${entry.event_date}</div>
+      </div>
+    `;
+    
+    // Add click event to open lightbox (only if photo exists)
+    if (photoSrc) {
+      polaroidItem.style.cursor = 'pointer';
+      polaroidItem.addEventListener('click', () => {
+        openLightbox(index);
+      });
+    }
+    
+    polaroidGrid.appendChild(polaroidItem);
+  });
+}
+
+// Gallery event listeners
+backToGuestbookBtn && backToGuestbookBtn.addEventListener('click', () => {
+  if (gallerySection) {
+    gallerySection.style.display = 'none';
+  }
+  // Reset to beginning
+  location.reload();
+});
+
+// shareAgainBtn && shareAgainBtn.addEventListener('click', () => {
+//   if (gallerySection) {
+//     gallerySection.style.display = 'none';
+//   }
+//   // Reset to beginning
+//   location.reload();
+// });
+
+/* ---------------- camera / selfie helpers ---------------- */
+async function requestCameraPermission() {
+  try {
+    // Request camera permission
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    cameraPermissionGranted = true;
+    
+    // Hide permission overlay
+    if (cameraPermissionOverlay) {
+      cameraPermissionOverlay.classList.add('hidden');
+      setTimeout(() => {
+        cameraPermissionOverlay.style.display = 'none';
+      }, 500);
+    }
+    
+    // Enable shutter button
+    if (takePhotoBtn) {
+      takePhotoBtn.disabled = false;
+    }
+    
+    // Start camera
+    if (camera) {
+      camera.srcObject = cameraStream;
+      camera.style.display = 'block';
+    }
+    
+    console.log('Camera permission granted and camera started');
+  } catch (e) {
+    console.error('Failed to get camera permission:', e);
+    // Show error message to user
+    if (cameraPermissionOverlay) {
+      const message = cameraPermissionOverlay.querySelector('.permission-message');
+      const button = cameraPermissionOverlay.querySelector('.permission-button');
+      if (message) {
+        message.textContent = 'Camera access was denied. Please refresh the page and allow camera access to continue.';
+      }
+      if (button) {
+        button.textContent = 'Try Again';
+        button.onclick = () => location.reload();
+      }
     }
   }
+}
 
-  // Disconnect previous analyser connection if present
-  if (playbackAnalyser) {
-    try { playbackSourceNode.disconnect(playbackAnalyser); } catch (_) { }
+async function startCamera() {
+  // Check if we already have permission
+  if (cameraPermissionGranted && cameraStream) {
+    if (camera) {
+      camera.srcObject = cameraStream;
+      camera.style.display = 'block';
+    }
+    return;
+  }
+  
+  // Show permission overlay if not granted
+  if (cameraPermissionOverlay) {
+    cameraPermissionOverlay.style.display = 'flex';
+    cameraPermissionOverlay.classList.remove('hidden');
+  }
+  
+  // Disable shutter button until permission is granted
+  if (takePhotoBtn) {
+    takePhotoBtn.disabled = true;
+  }
+}
+
+function stopCamera() {
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+  if (camera) {
+    try { camera.srcObject = null; } catch (_) { }
+  }
+}
+
+/* ---------------- iOS audio context initialization ---------------- */
+// iOS requires user interaction to start audio context
+function initializeAudioContext() {
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(err => {
+      console.warn('Could not resume audio context:', err);
+    });
+  }
+}
+
+// Lightbox functionality
+let currentLightboxIndex = 0;
+let galleryImages = [];
+
+function initializeLightbox() {
+  const lightboxModal = document.getElementById('lightboxModal');
+  const lightboxClose = document.querySelector('.lightbox-close');
+  const lightboxPrev = document.getElementById('lightboxPrev');
+  const lightboxNext = document.getElementById('lightboxNext');
+  const lightboxImage = document.getElementById('lightboxImage');
+  const lightboxName = document.getElementById('lightboxName');
+  const lightboxDate = document.getElementById('lightboxDate');
+  const lightboxCounter = document.getElementById('lightboxCounter');
+
+  // Close lightbox
+  function closeLightbox() {
+    lightboxModal.classList.remove('show');
+    document.body.style.overflow = 'auto';
   }
 
-  playbackAnalyser = audioCtx.createAnalyser();
-  playbackAnalyser.fftSize = 2048;
-  try {
-    playbackSourceNode.connect(playbackAnalyser);
-    playbackAnalyser.connect(audioCtx.destination);
-  } catch (e) {
-    console.warn('Playback graph connection issue', e);
+  // Open lightbox
+  function openLightbox(index) {
+    currentLightboxIndex = index;
+    updateLightboxContent();
+    lightboxModal.classList.add('show');
+    document.body.style.overflow = 'hidden';
   }
 
-  analyser = playbackAnalyser;
-  drawWaveform(analyser);
-});
+  // Update lightbox content
+  function updateLightboxContent() {
+    if (galleryImages.length === 0) return;
+    
+    const currentImage = galleryImages[currentLightboxIndex];
+    lightboxImage.src = currentImage.photo;
+    lightboxImage.alt = currentImage.guest_name || 'Guest';
+    lightboxName.textContent = currentImage.guest_name || 'Guest';
+    lightboxDate.textContent = currentImage.date || '';
+    lightboxCounter.textContent = `${currentLightboxIndex + 1} / ${galleryImages.length}`;
+  }
 
-audioPlayback.addEventListener("pause", stopVisualizer);
-audioPlayback.addEventListener("ended", () => {
-  stopVisualizer();
-  uiState = 'ready';
-  actionBtn.disabled = false;
-  actionBtn.textContent = '▶️ Preview';
-});
+  // Navigate to previous image
+  function showPrevious() {
+    if (galleryImages.length === 0) return;
+    currentLightboxIndex = (currentLightboxIndex - 1 + galleryImages.length) % galleryImages.length;
+    updateLightboxContent();
+  }
+
+  // Navigate to next image
+  function showNext() {
+    if (galleryImages.length === 0) return;
+    currentLightboxIndex = (currentLightboxIndex + 1) % galleryImages.length;
+    updateLightboxContent();
+  }
+
+  // Event listeners
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightboxPrev.addEventListener('click', showPrevious);
+  lightboxNext.addEventListener('click', showNext);
+
+  // Close on background click
+  lightboxModal.addEventListener('click', (e) => {
+    if (e.target === lightboxModal) {
+      closeLightbox();
+    }
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (!lightboxModal.classList.contains('show')) return;
+    
+    switch(e.key) {
+      case 'Escape':
+        closeLightbox();
+        break;
+      case 'ArrowLeft':
+        showPrevious();
+        break;
+      case 'ArrowRight':
+        showNext();
+        break;
+    }
+  });
+
+  // Touch/swipe navigation for mobile
+  let startX = 0;
+  let startY = 0;
+
+  lightboxImage.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  });
+
+  lightboxImage.addEventListener('touchend', (e) => {
+    if (!lightboxModal.classList.contains('show')) return;
+    
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    const diffX = startX - endX;
+    const diffY = startY - endY;
+
+    // Only trigger if horizontal swipe is more significant than vertical
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+      if (diffX > 0) {
+        showNext(); // Swipe left = next
+      } else {
+        showPrevious(); // Swipe right = previous
+      }
+    }
+  });
+
+  // Make functions globally available
+  window.openLightbox = openLightbox;
+  window.galleryImages = galleryImages;
+}
+
+// Update gallery images array when loading gallery
+function updateGalleryImages(images) {
+  galleryImages = images;
+  window.galleryImages = galleryImages;
+}
