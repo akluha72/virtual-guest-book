@@ -45,10 +45,10 @@ v
 
 15/10/2025
 1. shutter button shouldn't be available to the user until user allow the based on browser request. have a blur layer asking user to allow browser permission to allow camera first. then remove blur layer.  - DONE
-2. In Guest Gallery section when user in lightbox mode i want to have a polaroid frame behind the image.
+2. In Guest Gallery section when user in lightbox mode i want to have a polaroid frame behind the image. 
 3. I have new microphone image assets 'microphone-2-edit.png' to replace the white dot with a microphone image instead. - DONE
-4. On polaroid final preview do add a javascript function when user click to type their name it will scroll to most down of the viewport - WIP
-5. To fix the preview.php audio section to have polaroid card view -Done
+4. On polaroid final preview do add a javascript function when user click to type their name it will scroll to most down of the viewport - DONE
+5. To fix the preview.php audio section to have polaroid card view - DONE
 
 
 6. Preview.php on grid view by click the polaroid it will open a lightbox mode. below the polaroid in lightbox mode it will have the audio player controller. the order is like this: below the polaroid wave form, below the waveform the audio controler like spotify make it blur transparent background
