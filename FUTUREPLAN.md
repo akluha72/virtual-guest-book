@@ -42,7 +42,6 @@ v
 1. Have a grid of polaroid photo for guest to see how has submitted. Collection of polaroid - DONE
 
 
-
 15/10/2025
 1. shutter button shouldn't be available to the user until user allow the based on browser request. have a blur layer asking user to allow browser permission to allow camera first. then remove blur layer.  - DONE
 2. In Guest Gallery section when user in lightbox mode i want to have a polaroid frame behind the image. 
