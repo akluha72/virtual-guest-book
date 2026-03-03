@@ -1,4 +1,4 @@
-import './style.css'
+import './style.scss'
 import './styles/mainpage.scss'
 import './styles/splashscreen.scss'
 
