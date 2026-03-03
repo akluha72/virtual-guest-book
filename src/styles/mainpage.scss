@@ -1,3 +1,10 @@
+#visualizer {
+    width: 100% !important;
+    max-width: 90vw;
+    min-width: 0;
+    display: block;
+    box-sizing: border-box;
+}
 $background: #ffcb70;
 $brown-border: #813e20;
 $gold: #ffbb5c;
