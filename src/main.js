@@ -525,7 +525,7 @@ function updateRecordingUI(state) {
       recordingIndicator.parentElement.classList.remove("recording");
     }
     if (recordBtn) {
-      recordBtn.textContent = "🎤 Start Recording";
+      recordBtn.textContent = "Start Recording";
       recordBtn.classList.remove("recording", "preview", "playing");
       recordBtn.classList.add("idle");
     }
@@ -538,7 +538,7 @@ function updateRecordingUI(state) {
       recordingIndicator.parentElement.classList.remove("recording");
     }
     if (recordBtn) {
-      recordBtn.textContent = "▶️ Preview Recording";
+      recordBtn.textContent = "▶ Preview Recording";
       recordBtn.classList.remove("recording", "idle", "playing");
       recordBtn.classList.add("preview");
     }
@@ -548,7 +548,7 @@ function updateRecordingUI(state) {
       recordingIndicator.parentElement.classList.add("recording"); // Show pulsing during preview
     }
     if (recordBtn) {
-      recordBtn.textContent = "⏸️ Stop Preview";
+      recordBtn.textContent = "⏸ Stop Preview";
       recordBtn.classList.remove("recording", "idle", "preview");
       recordBtn.classList.add("playing");
     }

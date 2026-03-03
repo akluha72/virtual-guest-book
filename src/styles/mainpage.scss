@@ -264,7 +264,7 @@ h1 {
                 font-weight: 600;
                 cursor: pointer;
                 transition: all 0.3s ease;
-                font-family: "Reenie Beanie", cursive;
+                // font-family: "Reenie Beanie", cursive;
 
                 &:hover {
                     background: rgba(255, 255, 255, 0.3);
@@ -321,6 +321,8 @@ h1 {
                     font-weight: 600;
                     color: #ffffff;
                     margin: 0 0 1rem;
+                    font-family: "Playfair Display", serif;
+
                 }
 
                 .permission-message {
@@ -328,10 +330,13 @@ h1 {
                     font-size: 1rem;
                     line-height: 1.5;
                     margin: 0 0 1.5rem;
+                    // font-family: "Playfair Display", serif;
+
                 }
 
                 .permission-button {
                     // background: linear-gradient(135deg, #007AFF, #5856D6);
+                    font-family: sans-serif;
                     color: white;
                     border: none;
                     padding: 1rem 2rem;
@@ -341,7 +346,9 @@ h1 {
                     cursor: pointer;
                     transition: all 0.3s ease;
                     // box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
-                    font-family: "Reenie Beanie", cursive;
+                    // font-family: "Reenie Beanie", cursive;
+                    // font-family: "Playfair Display", serif;
+
 
                     &:hover {
                         transform: translateY(-2px);
@@ -537,26 +544,25 @@ h1 {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: black;
     width: 100%;
-    // height: 100dvh;
     position: relative;
 
     .voice-recorder-container {
         width: 100%;
-        // max-width: 400px;
-        // padding: 2rem;
+        height: 100vh;
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: center;
         gap: 1.5rem;
     }
 
     .recorder-title {
-        color: white;
+        color: black;
         font-size: 1.5rem;
         font-weight: 600;
         margin: 0;
+        font-family: "Playfair Display", serif;
     }
 
     .recording-indicator-container {
@@ -608,9 +614,9 @@ h1 {
     }
 
     .waveform-container {
-        width: 80%;
+        width: 90%;
         height: 80px;
-        background: rgba(0, 0, 0, 0.3);
+        background: rgb(0, 0, 0);
         border-radius: 12px;
         padding: 1rem;
         display: flex;
@@ -619,7 +625,7 @@ h1 {
     }
 
     .waveform-canvas {
-        width: 80%;
+        width: 100%;
         height: 100%;
         background: transparent;
         border-radius: 8px;
@@ -684,29 +690,12 @@ h1 {
     }
 
     .record-btn {
-        // background: linear-gradient(135deg, #ff6b9d, #ff4757);
-        color: white;
-        font-size: 1.1rem;
-        font-weight: 600;
+        color: black;
         padding: 1rem 2rem;
         border: none;
         border-radius: 25px;
         cursor: pointer;
         transition: all 0.3s ease;
-        // box-shadow: 0 4px 15px rgba(255, 107, 157, 0.3);
-
-        &:hover {
-            transform: translateY(-2px);
-            // box-shadow: 0 6px 20px rgba(255, 107, 157, 0.4);
-        }
-
-        &.idle {
-            // background: linear-gradient(135deg, #ff6b9d, #ff4757);
-        }
-
-        &.recording {
-            // background: linear-gradient(135deg, #ff4757, #ff3742);
-        }
     }
 
     .pause-btn {
@@ -761,14 +750,14 @@ h1 {
     .restart-btn,
     .save-btn {
         background: rgba(255, 255, 255, 0.1);
-        color: white;
-        font-size: 1rem;
-        font-weight: 600;
+        color: black;
         padding: 0.75rem 1.5rem;
         border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 20px;
         cursor: pointer;
         transition: all 0.3s ease;
+        // font-family: "Playfair Display", serif;
+
 
         &:hover {
             background: rgba(255, 255, 255, 0.2);
@@ -821,11 +810,10 @@ h1 {
     }
 }
 
-.finalPreviewOverlay {
+.final-preview-overlay {
     display: none;
     position: fixed;
     inset: 0;
-    background: black;
     z-index: 1000;
     align-items: center;
     justify-content: center;

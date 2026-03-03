@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Monsieur+La+Doulaise&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Quicksand:wght@300..700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Monsieur+La+Doulaise&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Quicksand:wght@300..700&family=Reenie+Beanie&display=swap"
     rel="stylesheet">
 </head>
 
@@ -51,6 +51,9 @@
   </section>
 
   <section class="guest-wishes-section">
+    <div class="flower-top">
+      <img src="images/cover/flower-top.png" alt="">
+    </div>
     <div class="voice-recorder-container">
       <h2 class="recorder-title">Voice Recorder</h2>
 
@@ -59,7 +62,7 @@
         <div class="recording-indicator" id="recordingIndicator">
           <div class="microphone-icon">
             <div class="mic-circle">
-              <img src="./image-assets/microphone-2-edit.png" alt="microphone">
+              <img src="./images/microphone-2-edit.png" alt="microphone">
             </div>
           </div>
         </div>
@@ -75,17 +78,20 @@
 
       <!-- Control buttons -->
       <div class="recording-controls">
-        <button id="recordBtn" class="record-btn idle">🎤 Start Recording</button>
+        <button id="recordBtn" class="record-btn idle">Start Recording</button>
       </div>
 
       <!-- Post-recording controls -->
       <div id="postControls" class="post-controls" style="display:none;">
-        <button id="restartRecordingBtn" class="restart-btn">🔄 Restart</button>
-        <button id="saveRecordingBtn" class="save-btn">Next ✅</button>
+        <button id="restartRecordingBtn" class="restart-btn">Restart</button>
+        <button id="saveRecordingBtn" class="save-btn">Next</button>
       </div>
     </div>
 
     <audio id="audioPlayback" controls style="display:none;" preload="auto" playsinline webkit-playsinline></audio>
+    <div class="flower-bottom">
+      <img src="images/cover/flower-bottom.png" alt="">
+    </div>
   </section>
 
   <section class="selfie-section">
@@ -122,7 +128,10 @@
   </section>
 
   <!-- Final Preview Overlay -->
-  <div id="finalPreviewOverlay" class="finalPreviewOverlay">
+  <div id="finalPreviewOverlay" class="final-preview-overlay">
+    <div class="flower-top">
+      <img src="images/cover/flower-top.png" alt="">
+    </div>
     <div class="polaroid-frame">
       <div class="photo-area">
         <img id="finalPreviewPhoto" class="guest-photo" alt="Guest" />
@@ -149,9 +158,12 @@
     </div>
 
     <div class="final-button">
-      <button id="restartBtn">🔁 Restart</button>
+      <button id="restartBtn">Restart</button>
 
-      <button id="submitFinalBtn">✅ Submit</button>
+      <button id="submitFinalBtn">Submit</button>
+    </div>
+    <div class="flower-bottom">
+      <img src="images/cover/flower-bottom.png" alt="">
     </div>
   </div>
 
@@ -225,3 +237,10 @@
 </body>
 
 </html>
+
+
+<!-- 
+icon
+1. restart
+2. submit
+-->
