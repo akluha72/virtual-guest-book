@@ -6,13 +6,9 @@ $gold-text-lighter: #fdc77a;
 body {
     font-family: sans-serif;
     text-align: center;
-    background-color: black;
+    // background-color: black;
     justify-content: center;
     min-height: 100dvh;
-}
-
-button {
-    font-family: "Reenie Beanie", cursive;
 }
 
 .content-wrapper {
@@ -22,6 +18,41 @@ button {
 h1 {
     font-family: "Sacramento", cursive;
 }
+
+.flower-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.flower-top img {
+    display: block;
+    width: 100vw;
+    height: auto;
+    max-height: 30vh;
+    object-fit: cover;
+}
+
+.flower-bottom {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.flower-bottom img {
+    display: block;
+    width: 100vw;
+    height: auto;
+    max-height: 30vh;
+    object-fit: cover;
+}
+
 
 .splash-screen {
     position: fixed;
@@ -74,13 +105,6 @@ h1 {
         max-height: 30vh;
         object-fit: cover;
     }
-
-    // Ensure content is above the flowers
-    // >*:not(.flower-top):not(.flower-bottom) {
-    //     position: relative;
-    //     z-index: 2;
-    // }
-
 
     .brides-button-wrapper {
         display: flex;
@@ -144,7 +168,7 @@ h1 {
 
     .vtt-container {
         width: 80%;
-        // margin-top: 20px;
+        color: black;
     }
 }
 
@@ -1524,8 +1548,15 @@ h1 {
 #lyricsBox {
     transition: opacity 0.4s ease;
     opacity: 1;
-    color: white;
+    font-size: 1rem;
+    line-height: 1.4;
+    color: black;
+    font-family: "Playfair Display", serif;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    margin: 25px auto;
 }
+
 
 #lyricsBox.fade-out {
     opacity: 0;

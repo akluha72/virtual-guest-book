@@ -564,7 +564,6 @@ document.addEventListener('click', initializeAudioContext, { once: true });
 /*
   STEP 1: Play greeting audio and guest record wish audio
 */
-
 window.addEventListener('load', () => {
   // Ensure idle waveform is drawn when page loads
   drawIdleWaveform(canvas2);
@@ -591,6 +590,7 @@ window.addEventListener('load', () => {
         splashScreenSection.style.display = 'none';
         // const audio = playRandomGreeting();
         audio.onended = () => {
+          //DEBUG: skip straight to selfie section
           bridesGreetingSection.style.display = 'none';
           guestWishesSection.style.display = 'flex';
         };
