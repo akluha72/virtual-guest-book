@@ -209,6 +209,49 @@ if ($result = $conn->query($sql)) {
       box-sizing: border-box;
     }
 
+    /* Carousel Navigation */
+    .carousel-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: none;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      z-index: 2001;
+    }
+
+    .carousel-nav:hover {
+      background: rgba(0, 0, 0, 0.7);
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    .carousel-prev {
+      left: 30px;
+    }
+
+    .carousel-next {
+      right: 30px;
+    }
+
+    .carousel-nav:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .carousel-nav:disabled:hover {
+      transform: translateY(-50%);
+      background: rgba(0, 0, 0, 0.5);
+    }
+
     .lightbox-close {
       position: absolute;
       top: 20px;
@@ -294,11 +337,16 @@ if ($result = $conn->query($sql)) {
       border-radius: 12px;
       margin-bottom: 1.5rem;
       padding: 1rem;
-      display: flex;
+      display: none;
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+    }
+
+    .waveform-container.show {
+      display: flex;
     }
 
     .lightbox-waveform {
@@ -480,6 +528,20 @@ if ($result = $conn->query($sql)) {
         width: 40px;
         height: 40px;
         font-size: 2rem;
+      }
+
+      .carousel-nav {
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
+      }
+
+      .carousel-prev {
+        left: 15px;
+      }
+
+      .carousel-next {
+        right: 15px;
       }
     }
 
@@ -744,6 +806,10 @@ if ($result = $conn->query($sql)) {
     <div class="lightbox-content">
       <button class="lightbox-close" id="lightboxClose">&times;</button>
       
+      <!-- Carousel Navigation -->
+      <button class="carousel-nav carousel-prev" id="carouselPrev" title="Previous">‹</button>
+      <button class="carousel-nav carousel-next" id="carouselNext" title="Next">›</button>
+      
       <div class="lightbox-image-container">
         <img id="lightboxImage" class="lightbox-image" alt="Gallery Image">
         
@@ -759,39 +825,15 @@ if ($result = $conn->query($sql)) {
             <canvas id="lightboxWaveform" class="lightbox-waveform" width="400" height="80"></canvas>
           </div>
           
-          <!-- Spotify-style Audio Controls -->
+          <!-- Simplified Audio Controls -->
           <div class="spotify-player">
             <div class="player-controls">
-              <button class="control-btn shuffle-btn" id="shuffleBtn" title="Shuffle">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
-                </svg>
-              </button>
-              
-              <button class="control-btn prev-btn" id="prevBtn" title="Previous">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M3.3 1a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-1 0V1.5a.5.5 0 0 1 .5-.5zM11.3 1a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-1 0V1.5a.5.5 0 0 1 .5-.5z"/>
-                </svg>
-              </button>
-              
               <button class="control-btn play-pause-btn" id="playPauseBtn" title="Play">
                 <svg class="play-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M8 5v10l8-5-8-5z"/>
                 </svg>
                 <svg class="pause-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor" style="display: none;">
                   <path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"/>
-                </svg>
-              </button>
-              
-              <button class="control-btn next-btn" id="nextBtn" title="Next">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M12.7 1a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-1 0V1.5a.5.5 0 0 1 .5-.5zM4.7 1a.5.5 0 0 1 .5.5v13a.5.5 0 0 1-1 0V1.5a.5.5 0 0 1 .5-.5z"/>
-                </svg>
-              </button>
-              
-              <button class="control-btn repeat-btn" id="repeatBtn" title="Repeat">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M5.5 5H10v1.5l3.5-2-3.5-2V4H5.5C3.57 4 2 5.57 2 7.5S3.57 11 5.5 11H9v1.5l3.5-2-3.5-2V10H5.5C4.12 10 3 8.88 3 7.5S4.12 5 5.5 5z"/>
                 </svg>
               </button>
             </div>
@@ -823,8 +865,13 @@ if ($result = $conn->query($sql)) {
         this.lightboxDate = document.getElementById('lightboxDate');
         this.lightboxAudio = document.getElementById('lightboxAudio');
         this.lightboxWaveform = document.getElementById('lightboxWaveform');
+        this.waveformContainer = document.querySelector('.waveform-container');
         
-        // Spotify-style controls
+        // Carousel controls
+        this.carouselPrev = document.getElementById('carouselPrev');
+        this.carouselNext = document.getElementById('carouselNext');
+        
+        // Audio controls
         this.playPauseBtn = document.getElementById('playPauseBtn');
         this.progressBar = document.getElementById('progressBar');
         this.progressFill = document.getElementById('progressFill');
@@ -837,6 +884,7 @@ if ($result = $conn->query($sql)) {
         this.rafId = null;
         this.isPlaying = false;
         this.currentEntry = null;
+        this.currentIndex = 0;
         this.entries = [];
         
         this.init();
@@ -872,6 +920,15 @@ if ($result = $conn->query($sql)) {
           this.closeLightbox();
         });
 
+        // Carousel navigation
+        this.carouselPrev.addEventListener('click', () => {
+          this.previousEntry();
+        });
+
+        this.carouselNext.addEventListener('click', () => {
+          this.nextEntry();
+        });
+
         this.playPauseBtn.addEventListener('click', () => {
           this.toggleAudio();
         });
@@ -897,6 +954,10 @@ if ($result = $conn->query($sql)) {
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape') {
             this.closeLightbox();
+          } else if (e.key === 'ArrowLeft') {
+            this.previousEntry();
+          } else if (e.key === 'ArrowRight') {
+            this.nextEntry();
           }
         });
 
@@ -915,6 +976,7 @@ if ($result = $conn->query($sql)) {
       }
 
       openLightbox(index) {
+        this.currentIndex = index;
         this.currentEntry = this.entries[index];
         if (!this.currentEntry) return;
 
@@ -930,6 +992,12 @@ if ($result = $conn->query($sql)) {
           this.lightboxAudio.load();
         }
 
+        // Update carousel navigation
+        this.updateCarouselNavigation();
+
+        // Hide waveform initially
+        this.waveformContainer.classList.remove('show');
+
         // Show lightbox
         this.lightboxModal.classList.add('show');
         document.body.style.overflow = 'hidden';
@@ -939,6 +1007,23 @@ if ($result = $conn->query($sql)) {
         this.stopAudio();
         this.lightboxModal.classList.remove('show');
         document.body.style.overflow = 'auto';
+      }
+
+      previousEntry() {
+        if (this.currentIndex > 0) {
+          this.openLightbox(this.currentIndex - 1);
+        }
+      }
+
+      nextEntry() {
+        if (this.currentIndex < this.entries.length - 1) {
+          this.openLightbox(this.currentIndex + 1);
+        }
+      }
+
+      updateCarouselNavigation() {
+        this.carouselPrev.disabled = this.currentIndex === 0;
+        this.carouselNext.disabled = this.currentIndex === this.entries.length - 1;
       }
 
       toggleAudio() {
@@ -956,6 +1041,8 @@ if ($result = $conn->query($sql)) {
           this.setupAudioVisualizer();
           this.updatePlayButton(true);
           this.isPlaying = true;
+          // Show waveform when audio starts playing
+          this.waveformContainer.classList.add('show');
         }).catch(error => {
           console.warn('Could not play audio:', error);
         });
@@ -972,6 +1059,9 @@ if ($result = $conn->query($sql)) {
         this.lightboxAudio.currentTime = 0;
         this.updatePlayButton(false);
         this.isPlaying = false;
+        
+        // Hide waveform when audio stops
+        this.waveformContainer.classList.remove('show');
         
         if (this.rafId) {
           cancelAnimationFrame(this.rafId);

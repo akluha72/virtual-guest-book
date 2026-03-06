@@ -1,4 +1,4 @@
-import './style.css'
+import './style.scss'
 import './styles/mainpage.scss'
 import './styles/splashscreen.scss'
 
@@ -525,7 +525,7 @@ function updateRecordingUI(state) {
       recordingIndicator.parentElement.classList.remove("recording");
     }
     if (recordBtn) {
-      recordBtn.textContent = "🎤 Start Recording";
+      recordBtn.textContent = "Start Recording";
       recordBtn.classList.remove("recording", "preview", "playing");
       recordBtn.classList.add("idle");
     }
@@ -538,7 +538,7 @@ function updateRecordingUI(state) {
       recordingIndicator.parentElement.classList.remove("recording");
     }
     if (recordBtn) {
-      recordBtn.textContent = "▶️ Preview Recording";
+      recordBtn.textContent = "▶ Preview Recording";
       recordBtn.classList.remove("recording", "idle", "playing");
       recordBtn.classList.add("preview");
     }
@@ -548,7 +548,7 @@ function updateRecordingUI(state) {
       recordingIndicator.parentElement.classList.add("recording"); // Show pulsing during preview
     }
     if (recordBtn) {
-      recordBtn.textContent = "⏸️ Stop Preview";
+      recordBtn.textContent = "⏸ Stop Preview";
       recordBtn.classList.remove("recording", "idle", "preview");
       recordBtn.classList.add("playing");
     }
@@ -564,7 +564,6 @@ document.addEventListener('click', initializeAudioContext, { once: true });
 /*
   STEP 1: Play greeting audio and guest record wish audio
 */
-
 window.addEventListener('load', () => {
   // Ensure idle waveform is drawn when page loads
   drawIdleWaveform(canvas2);
@@ -591,6 +590,7 @@ window.addEventListener('load', () => {
         splashScreenSection.style.display = 'none';
         // const audio = playRandomGreeting();
         audio.onended = () => {
+          //DEBUG: skip straight to selfie section
           bridesGreetingSection.style.display = 'none';
           guestWishesSection.style.display = 'flex';
         };
