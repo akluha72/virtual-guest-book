@@ -1,6 +1,15 @@
 import './style.scss'
 import './styles/mainpage.scss'
-import './styles/splashscreen.scss'
+import './components/splash-screen/splash-screen.scss'
+import './components/brides-greeting/brides-greeting.scss'
+import './components/guest-wishes/guest-wishes.scss'
+import './components/selfie-section/selfie-section.scss'
+import './components/final-preview-overlay/final-preview-overlay.scss'
+import { SplashScreenComponent } from './components/splash-screen/splash-screen.js'
+import { BridesGreetingComponent } from './components/brides-greeting/brides-greeting.js'
+import { GuestWishesComponent } from './components/guest-wishes/guest-wishes.js'
+import { SelfieSectionComponent } from './components/selfie-section/selfie-section.js'
+import { FinalPreviewOverlayComponent } from './components/final-preview-overlay/final-preview-overlay.js'
 
 /* ---------------- globals ---------------- */
 let mediaRecorder;
@@ -47,6 +56,54 @@ const filters = {
     canvas: 'dramatic'
   }
 };
+
+/* ---------------- component bootstrap ---------------- */
+let guestWishesComponent = null;
+let selfieSectionComponent = null;
+let finalPreviewOverlayComponent = null;
+
+function initializeGuestWishesComponent() {
+  const app = document.getElementById('app');
+  if (!app) {
+    console.error('App container not found');
+    return;
+  }
+
+  guestWishesComponent = new GuestWishesComponent({ hiddenOnInit: true });
+  const guestWishesElement = guestWishesComponent.createElement();
+  app.appendChild(guestWishesElement);
+  guestWishesComponent.init();
+}
+
+function initializeSelfieSectionComponent() {
+  const app = document.getElementById('app');
+  if (!app) {
+    console.error('App container not found');
+    return;
+  }
+
+  selfieSectionComponent = new SelfieSectionComponent({ hiddenOnInit: true });
+  const selfieElement = selfieSectionComponent.createElement();
+  app.appendChild(selfieElement);
+  selfieSectionComponent.init();
+}
+
+function initializeFinalPreviewOverlayComponent() {
+  const app = document.getElementById('app');
+  if (!app) {
+    console.error('App container not found');
+    return;
+  }
+
+  finalPreviewOverlayComponent = new FinalPreviewOverlayComponent({ hiddenOnInit: true });
+  const finalPreviewElement = finalPreviewOverlayComponent.createElement();
+  app.appendChild(finalPreviewElement);
+  finalPreviewOverlayComponent.init();
+}
+
+initializeGuestWishesComponent();
+initializeSelfieSectionComponent();
+initializeFinalPreviewOverlayComponent();
 
 // Apply filter to camera video
 function applyCameraFilter(filterKey) {
@@ -193,8 +250,10 @@ const restartRecordingBtn = document.getElementById("restartRecordingBtn");
 const saveRecordingBtn = document.getElementById("saveRecordingBtn");
 const postControls = document.getElementById("postControls");
 
-const splashScreenSection = document.querySelector(".splash-screen");
-const bridesGreetingSection = document.querySelector(".brides-greeting-section");
+// Component instances
+let splashScreenComponent = null;
+let bridesGreetingComponent = null;
+
 const selfieSection = document.querySelector(".selfie-section");
 const nameSection = document.querySelector(".name-section");
 const guestWishesSection = document.querySelector(".guest-wishes-section");
@@ -211,7 +270,7 @@ if (audioPlaybackGreetings) {
   try { audioPlaybackGreetings.setAttribute('playsinline', ''); } catch (_) { }
 }
 
-const canvas = document.getElementById("visualizer");
+// const canvas = document.getElementById("visualizer"); // Now handled by BridesGreetingComponent
 const canvas2 = document.getElementById("visualizer2");
 
 // New voice recorder elements
@@ -577,27 +636,15 @@ window.addEventListener('load', () => {
   // Initialize camera permission
   initializeCameraPermission();
   
+  // Initialize splash screen component
+  initializeSplashScreen();
+  
+  // Initialize brides greeting component
+  initializeBridesGreeting();
+  
   let isClicked = false;
-  actionBtn.addEventListener('click', () => {
-    if (isClicked) return; // ignore further clicks
-    isClicked = true;
-    setTimeout(() => {
-      const audio = playRandomGreeting();
-      splashScreenSection.classList.add('fade-out');
-      // Wait for the fade animation to finish before hiding it
-      setTimeout(() => {
-        bridesGreetingSection.style.display = 'flex';
-        splashScreenSection.style.display = 'none';
-        // const audio = playRandomGreeting();
-        audio.onended = () => {
-          //DEBUG: skip straight to selfie section
-          bridesGreetingSection.style.display = 'none';
-          guestWishesSection.style.display = 'flex';
-        };
-      }, 3000); // match the transition duration in CSS
-    }, 2000);
-    setTimeout(() => (isClicked = false), 3000);
-  });
+  // Old actionBtn logic is now handled by splice screen component
+  // The component will call handleSplashScreenStart when the user clicks start
 
 
   // Save recording functionality
@@ -686,7 +733,7 @@ window.addEventListener('load', () => {
     })();
 
     // Display the camera section
-    bridesGreetingSection.style.display = 'none';
+    // bridesGreetingSection.style.display = 'none';
     guestWishesSection.style.display = 'none';
     selfieSection.style.display = "flex";
     if (selfieSection) {
@@ -1206,93 +1253,6 @@ function stopVisualizer(target) {
   }
 }
 
-
-/* ---------------- greetings (random) ---------------- */
-const greetings = [
-  "/voice-note/voice4-effect.wav",
-];
-
-const lyrics = [
-  { time: 0, text: "Hi guyss!" },
-  { time: 3, text: "Thankyou sebab datang kenduri kitaorang" },
-  { time: 6, text: "Appreciate sangat" },
-  { time: 7, text: "And..." },
-  { time: 10, text: "Hopefully you guys enjoy the weddings" },
-  { time: 12, text: "And please leave some message for us" },
-  { time: 14, text: "Okay?" },
-  { time: 15, text: "Bye-Bye!" },
-  { time: 16, text: "" }
-];
-
-let currentLine = -1;
-function showLyric(text) {
-  const box = document.getElementById("lyricsBox");
-  if (!box) return;
-  box.classList.add("fade-out");
-  setTimeout(() => {
-    box.textContent = text;
-    box.classList.remove("fade-out");
-  }, 400);
-}
-
-function playRandomGreeting() {
-  const randomIndex = Math.floor(Math.random() * greetings.length);
-  const url = greetings[randomIndex];
-  const audio = new Audio(url);
-  audio.crossOrigin = 'anonymous';
-
-  audio.onerror = (e) => {
-    console.error('Greeting failed to load', url, e);
-  };
-
-  // attach greeting audio to an analyser and visualizer on the greeting canvas
-  try {
-    const ctx = getAudioContext();
-    const source = ctx.createMediaElementSource(audio);
-    const greetAnalyser = ctx.createAnalyser();
-    greetAnalyser.fftSize = 2048;
-
-    // connect source -> analyser -> destination (so user hears it)
-    source.connect(greetAnalyser);
-    greetAnalyser.connect(ctx.destination);
-
-    // draw on greeting canvas
-    drawWaveform(greetAnalyser, canvas);
-  } catch (err) {
-    console.warn('Could not attach greeting to analyser', err);
-  }
-
-  // reset lyric tracking
-  currentLine = -1;
-  const box = document.getElementById("lyricsBox");
-  if (box) box.textContent = "";
-
-  audio.addEventListener("timeupdate", () => {
-    const current = audio.currentTime;
-    for (let i = lyrics.length - 1; i >= 0; i--) {
-      if (current >= lyrics[i].time) {
-        if (currentLine !== i) {
-          currentLine = i;
-          showLyric(lyrics[i].text);
-        }
-        break;
-      }
-    }
-  });
-
-  audio.onended = () => {
-    const box = document.getElementById("lyricsBox");
-    if (box) box.textContent = "";
-    // stop greeting visualizer
-    stopVisualizer(canvas);
-  };
-
-  audio.play().catch(err => {
-    console.error('Greeting failed to play', err);
-  });
-
-  return audio;
-}
 
 /* ---------------- recording lifecycle ---------------- */
 async function startRecording() {
@@ -1822,4 +1782,78 @@ function initializeLightbox() {
 function updateGalleryImages(images) {
   galleryImages = images;
   window.galleryImages = galleryImages;
+}
+
+/* ---------------- splash screen component integration ---------------- */
+
+function initializeSplashScreen() {
+  // Initialize splash screen component
+  const app = document.getElementById('app');
+  if (!app) {
+    console.error('App container not found');
+    return;
+  }
+
+  splashScreenComponent = new SplashScreenComponent({
+    coupleNames: 'Firdaus & Najiha',
+    weddingDate: 'December 4th, 2026',
+    onStart: handleSplashScreenStart
+  });
+
+  // Create and mount the splash screen  
+  const splashElement = splashScreenComponent.createElement();
+  app.appendChild(splashElement);
+  splashScreenComponent.init();
+}
+
+function initializeBridesGreeting() {
+  // Initialize brides greeting component (but don't show it yet)
+  const app = document.getElementById('app');
+  if (!app) {
+    console.error('App container not found');
+    return;
+  }
+
+  bridesGreetingComponent = new BridesGreetingComponent({
+    greetings: ["/voice-note/voice4-effect.wav"],
+    lyrics: [
+      { time: 0, text: "Hi guys!" },
+      { time: 3, text: "Thank you sebab datang kenduri kitaorang" },
+      { time: 6, text: "Appreciate sangat" },
+      { time: 7, text: "And..." },
+      { time: 10, text: "Hopefully you guys enjoy the weddings" },
+      { time: 12, text: "And please leave some message for us" },
+      { time: 14, text: "Okay?" },
+      { time: 15, text: "Bye-Bye!" },
+      { time: 16, text: "" }
+    ],
+    onGreetingEnd: handleGreetingEnd
+  });
+
+  // Create the element but don't show it yet
+  const greetingElement = bridesGreetingComponent.createElement();
+  greetingElement.style.display = 'none';
+  app.appendChild(greetingElement);
+  bridesGreetingComponent.init();
+}
+
+function handleSplashScreenStart() {
+  console.log('Splash screen start clicked, transitioning to greeting...');
+  
+  // Show brides greeting component and start playing greeting
+  setTimeout(() => {
+    bridesGreetingComponent.show();
+    bridesGreetingComponent.playRandomGreeting();
+  }, 2000);
+}
+
+function handleGreetingEnd() {
+  console.log('Greeting ended, transitioning to guest wishes...');
+  
+  // Hide brides greeting and show guest wishes section
+  bridesGreetingComponent.hide();
+  
+  setTimeout(() => {
+    guestWishesSection.style.display = 'flex';
+  }, 1000);
 }

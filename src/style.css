@@ -14,6 +14,14 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Canvas styles moved from inline */
+.visualizer-canvas {
+  background: black;
+  border-radius: 8px;
+  display: block;
+  margin: 0.75rem auto;
+}
+
 input,
 select,
 textarea {
