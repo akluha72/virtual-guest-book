@@ -51,7 +51,8 @@
     padding: 1rem 1rem 3rem;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
     text-align: center;
-    width: min(80vw, 420px);
+    width: min(76vw, 42vh, 380px);
+    min-width: 240px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -79,7 +80,7 @@
       .guest-name {
         font-family: "Reenie Beanie", cursive;
         font-weight: bolder;
-        font-size: 1.9rem;
+        font-size: clamp(1.35rem, 4.8vw, 1.9rem);
         color: #333;
         margin: 10px 0;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
@@ -87,7 +88,7 @@
       }
 
       .editable-name {
-        font-size: 1.8rem;
+        font-size: clamp(1.25rem, 4.6vw, 1.8rem);
         font-weight: 600;
         font-family: "Reenie Beanie", cursive;
         margin: 10px 0;
@@ -180,7 +181,7 @@
   @media (max-height: 740px) {
     .polaroid-frame {
       margin-top: clamp(60px, 12vh, 100px);
-      width: min(86vw, 390px);
+      width: min(72vw, 40vh, 340px);
       padding: 0.9rem 0.9rem 2.6rem;
     }
 
@@ -192,6 +193,25 @@
     .final-button {
       margin-top: 10px;
       margin-bottom: clamp(70px, 14vh, 120px);
+    }
+  }
+
+  @media (max-width: 430px) {
+    .polaroid-frame {
+      width: min(70vw, 36vh, 320px);
+      min-width: 220px;
+      padding: 0.85rem 0.85rem 2.3rem;
+    }
+
+    .retake-photo-section {
+      margin-top: 10px;
+      margin-bottom: 6px;
+    }
+
+    .final-button {
+      gap: 12px;
+      max-width: 260px;
+      margin-top: 8px;
     }
   }
 }
