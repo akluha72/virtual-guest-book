@@ -5,18 +5,53 @@
   position: fixed;
   inset: 0;
   height: 100dvh;
+  width: 100vw;
   align-items: center;
-  justify-content: center;
-  padding: 1rem;
+  justify-content: flex-start;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-right: 1rem;
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: 1rem;
   flex-direction: column;
+  box-sizing: border-box;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  gap: 0.75rem;
+
+  .flower-top,
+  .flower-bottom {
+    position: absolute;
+    left: 0;
+    width: 100vw;
+    z-index: 1;
+    pointer-events: none;
+
+    img {
+      display: block;
+      width: 100vw;
+      height: auto;
+      max-height: 18vh;
+      object-fit: cover;
+    }
+  }
+
+  .flower-top {
+    top: 0;
+  }
+
+  .flower-bottom {
+    bottom: 0;
+  }
 
   .polaroid-frame {
+    position: relative;
+    z-index: 2;
+    margin-top: clamp(70px, 14vh, 130px);
     background: #fff;
     padding: 1rem 1rem 3rem;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
     text-align: center;
-    width: 80vw;
-    position: relative;
+    width: min(80vw, 420px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -107,6 +142,8 @@
   }
 
   .retake-photo-section {
+    position: relative;
+    z-index: 2;
     margin-top: 20px;
     margin-bottom: 10px;
 
@@ -128,12 +165,33 @@
   }
 
   .final-button {
+    position: relative;
+    z-index: 2;
     display: flex;
     flex-direction: row;
     justify-content: center;
     gap: 20px;
     width: 100%;
     max-width: 300px;
-    margin-top: 30px;
+    margin-top: 16px;
+    margin-bottom: clamp(80px, 16vh, 150px);
+  }
+
+  @media (max-height: 740px) {
+    .polaroid-frame {
+      margin-top: clamp(60px, 12vh, 100px);
+      width: min(86vw, 390px);
+      padding: 0.9rem 0.9rem 2.6rem;
+    }
+
+    .retake-photo-section {
+      margin-top: 12px;
+      margin-bottom: 8px;
+    }
+
+    .final-button {
+      margin-top: 10px;
+      margin-bottom: clamp(70px, 14vh, 120px);
+    }
   }
 }
