@@ -1,12 +1,12 @@
 /* Preview page styles - Full screen swipeable cards */
-body {
+/* body {
   margin: 0;
   padding: 0;
   font-family: system-ui, -apple-system, sans-serif;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   overflow: hidden;
   height: 100vh;
-}
+} */
 
 #previewContainer {
   width: 100vw;
