@@ -641,7 +641,7 @@ window.addEventListener('load', () => {
   
   // Initialize brides greeting component
   initializeBridesGreeting();
-  
+
   let isClicked = false;
   // Old actionBtn logic is now handled by splice screen component
   // The component will call handleSplashScreenStart when the user clicks start
