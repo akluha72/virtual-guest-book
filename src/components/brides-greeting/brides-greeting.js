@@ -281,7 +281,7 @@ export class BridesGreetingComponent {
         // Reset lyric tracking
         this.currentLine = -1;
         if (this.lyricsBox) {
-            this.lyricsBox.textContent = "🎵 Audio loading...";
+            this.lyricsBox.textContent = "Audio loading...";
             console.log('Lyrics reset, starting audio playback');
         }
 

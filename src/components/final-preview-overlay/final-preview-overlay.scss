@@ -9,30 +9,30 @@
   flex-direction: column;
   gap: 0.75rem;
 
-  .flower-top,
-  .flower-bottom {
-    // position: absolute;
-    left: 0;
-    width: 100%;
-    z-index: 1;
-    pointer-events: none;
+  // .flower-top,
+  // .flower-bottom {
+  //   // position: absolute;
+  //   left: 0;
+  //   width: 100%;
+  //   z-index: 1;
+  //   pointer-events: none;
 
-    img {
-      display: block;
-      width: 100%;
-      height: auto;
-      max-height: 18vh;
-      object-fit: cover;
-    }
-  }
+  //   img {
+  //     display: block;
+  //     width: 100%;
+  //     height: auto;
+  //     max-height: 18vh;
+  //     object-fit: cover;
+  //   }
+  // }
 
-  .flower-top {
-    top: 0;
-  }
+  // .flower-top {
+  //   top: 0;
+  // }
 
-  .flower-bottom {
-    bottom: -1px;
-  }
+  // .flower-bottom {
+  //   bottom: -1px;
+  // }
 
   .preview-wrapper {
     position: relative;

@@ -8,7 +8,7 @@ export default defineConfig({
         host: true,
         port: 5173,
         allowedHosts: true,
-        https: true,
+        https: false,
     },
     define: {
         __APP_VERSION__: JSON.stringify(version),
